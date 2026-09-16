@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#05070f">
+<title>میلانو تریدر ۵٫۸ — اتصال هاست · بازار زنده · موتور</title>
+<!--
+  ═══ میلانو تریدر · نسخهٔ ۵٫۸ · HOST LINK ═══
+  سه حالت در یک اپ:
+    ۱) اتصال به هاست cPanel با سلامت‌سنجی کامل (api/health.php) از طریق پل بومی MeelanoBridge
+    ۲) بازار زندهٔ واقعی بدون هیچ سروری (REST + WebSocket بایننس) + سقوط خودکار به شبیه‌سازی
+    ۳) پنل نمایشی موتور ۳۴ فیلتری و یادگیری تطبیقی
+  Milad Yaghoobi — Meelano Studio Design
+-->
+<style>
+:root{
+  --gold-1:#ffd76a; --gold-2:#f5b731; --gold-3:#c98f15;
+  --indigo-1:#8b9dff; --indigo-2:#5b6cff;
+  --emerald:#34d399; --rose:#fb7185;
+  --bg-0:#05070f; --bg-1:#0b1020; --bg-2:#131a2e;
+  --text:#e8ecf8; --text-dim:#9aa4c0;
+  --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.06);
+  --font-fa:"Vazirmatn","Segoe UI",Tahoma,sans-serif;
+  --radius-lg:18px; --radius-md:13px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--font-fa); color:var(--text); min-height:100vh; overflow-x:hidden;
+  background:
+    radial-gradient(60% 40% at 85% -5%, rgba(91,108,255,.14), transparent 60%),
+    radial-gradient(50% 35% at 10% 0%, rgba(245,183,49,.1), transparent 55%),
+    linear-gradient(180deg,var(--bg-1) 0%,var(--bg-0) 100%);
+}
+::selection{background:rgba(245,183,49,.3)}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-track{background:#070a14}
+::-webkit-scrollbar-thumb{background:linear-gradient(180deg,#2a3352,#1a2038);border-radius:8px;border:2px solid #070a14}
+::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,#3d4a74,#232b48)}
+
+.shell{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding:16px 14px 46px}
+.stack{display:flex;flex-direction:column;gap:16px}
+
+/* ── هدر ── */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:8px 2px}
+.brand{display:flex;align-items:center;gap:12px}
+.brand__gem{
+  width:48px;height:48px;border-radius:15px;display:grid;place-items:center;font-size:22px;font-weight:900;color:#231803;
+  background:linear-gradient(180deg,#ffe9a8 0%,var(--gold-1) 30%,var(--gold-2) 62%,#b57e12 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.7),inset 0 -3px 6px rgba(120,78,10,.55),0 3px 0 #6d4a0a,0 15px 30px -10px rgba(245,183,49,.55);
+}
+.brand__t{font-size:18px;font-weight:900}
+.brand__t b{color:var(--gold-1)}
+.brand__s{font-size:11px;color:var(--text-dim);margin-top:2px}
+.topbar__chips{display:flex;gap:6px;flex-wrap:wrap}
+
+.badge{
+  display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:5px 11px;border-radius:999px;
+  border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--text-dim);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 3px 8px -4px rgba(0,0,0,.6)
+}
+.badge--ok{color:#6ee7b7;border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.1)}
+.badge--bad{color:#fda4af;border-color:rgba(251,113,133,.4);background:rgba(251,113,133,.1)}
+.badge--gold{color:var(--gold-1);border-color:rgba(245,183,49,.4);background:rgba(245,183,49,.1)}
+.badge--indigo{color:var(--indigo-1);border-color:rgba(139,157,255,.4);background:rgba(139,157,255,.1)}
+
+/* ── نوار تب سه‌بعدی ── */
+.tabs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.tab{
+  position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;gap:8px;
+  font-family:var(--font-fa);font-size:13px;font-weight:800;cursor:pointer;padding:14px 10px;border-radius:16px;
+  border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--text-dim);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.1),inset 0 -2px 4px rgba(0,0,0,.3),0 2px 0 rgba(0,0,0,.4),0 10px 20px -10px rgba(0,0,0,.65);
+  transition:transform .16s,box-shadow .2s,filter .2s;
+}
+.tab::before{content:'';position:absolute;inset:1px 1px auto 1px;height:40%;border-radius:15px 15px 40% 40%/15px 15px 20px 20px;
+  background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,0));pointer-events:none}
+.tab:active{transform:translateY(2px)}
+.tab--on{
+  color:#231803;text-shadow:0 1px 0 rgba(255,255,255,.4);
+  background:linear-gradient(180deg,#ffe9a8 0%,var(--gold-1) 30%,var(--gold-2) 62%,#b57e12 100%);
+  border-color:rgba(255,230,160,.55);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.7),inset 0 -3px 6px rgba(120,78,10,.55),0 3px 0 #6d4a0a,0 16px 30px -10px rgba(245,183,49,.55);
+}
+.tab--on::before{background:linear-gradient(180deg,rgba(255,255,255,.34),rgba(255,255,255,0))}
+.tab i{font-style:normal;font-size:15px}
+
+/* ── دکمه‌های جواهر سه‌بعدی ── */
+.btn{
+  position:relative;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  font-family:var(--font-fa);font-size:13.5px;font-weight:800;cursor:pointer;padding:13px 22px;border-radius:15px;
+  border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--text);text-decoration:none;white-space:nowrap;
+  transform:translateZ(0);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.14),inset 0 -2px 4px rgba(0,0,0,.35),0 2px 0 rgba(0,0,0,.45),0 10px 22px -10px rgba(0,0,0,.7);
+  transition:transform .18s,filter .2s,box-shadow .25s;
+}
+.btn::before{content:'';position:absolute;inset:1px 1px auto 1px;height:42%;border-radius:14px 14px 40% 40%/14px 14px 22px 22px;
+  background:linear-gradient(180deg,rgba(255,255,255,.28),rgba(255,255,255,0));pointer-events:none;opacity:.75}
+.btn::after{content:'';position:absolute;top:-60%;bottom:-60%;width:34%;inset-inline-start:-45%;
+  background:linear-gradient(115deg,transparent,rgba(255,255,255,.35),transparent);transform:skewX(-18deg);
+  transition:inset-inline-start .55s ease;pointer-events:none}
+.btn:hover::after{inset-inline-start:130%}
+.btn:hover{filter:brightness(1.06);transform:translateY(-2px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 -2px 5px rgba(0,0,0,.38),0 4px 0 rgba(0,0,0,.42),0 18px 34px -12px rgba(0,0,0,.75)}
+.btn:active{transform:translateY(3px);filter:brightness(.97);
+  box-shadow:inset 0 2px 6px rgba(0,0,0,.5),0 1px 0 rgba(0,0,0,.4),0 6px 14px -8px rgba(0,0,0,.6)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none;filter:none}
+.btn:disabled::before,.btn:disabled::after{display:none}
+.btn--gold{
+  background:linear-gradient(180deg,#ffe9a8 0%,var(--gold-1) 30%,var(--gold-2) 62%,#b57e12 100%);color:#231803;
+  text-shadow:0 1px 0 rgba(255,255,255,.45);border-color:rgba(255,230,160,.55) rgba(120,84,12,.6) rgba(90,62,8,.75);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.7),inset 0 -3px 6px rgba(120,78,10,.55),0 3px 0 #6d4a0a,0 15px 30px -10px rgba(245,183,49,.55),0 26px 44px -18px rgba(0,0,0,.8)}
+.btn--indigo{
+  background:linear-gradient(180deg,#aab8ff 0%,#7f8fff 28%,var(--indigo-2) 60%,#2f33a8 100%);color:#fff;
+  border-color:rgba(190,200,255,.4) rgba(40,44,130,.55) rgba(24,26,90,.7);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.45),inset 0 -3px 6px rgba(20,22,80,.6),0 3px 0 #23268a,0 15px 30px -10px rgba(91,108,255,.5),0 26px 44px -18px rgba(0,0,0,.8)}
+.btn--emerald{
+  background:linear-gradient(180deg,#a7f3d4 0%,#6ee7b7 28%,var(--emerald) 60%,#047857 100%);color:#04241a;
+  border-color:rgba(200,255,230,.4) rgba(6,95,70,.5) rgba(4,70,52,.7);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -3px 6px rgba(4,70,52,.5),0 3px 0 #045c43,0 15px 30px -10px rgba(52,211,153,.45),0 26px 44px -18px rgba(0,0,0,.8)}
+.btn--sm{padding:9px 14px;font-size:12px;border-radius:12px}
+.btn--block{width:100%}
+
+/* ── کارت‌ها ── */
+.card{position:relative;
+  background:linear-gradient(160deg,rgba(24,32,56,.96) 0%,rgba(13,18,36,.88) 46%,rgba(8,11,24,.94) 100%);
+  border:1px solid var(--line-soft);border-radius:var(--radius-lg);padding:20px;
+  box-shadow:0 22px 52px -20px rgba(0,0,0,.8),0 4px 14px -6px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.07),inset 0 -1px 0 rgba(0,0,0,.35);
+  transition:transform .28s cubic-bezier(.4,0,.2,1),border-color .28s,box-shadow .28s}
+.card:hover{transform:translateY(-3px);border-color:rgba(245,183,49,.25);
+  box-shadow:0 28px 58px -22px rgba(0,0,0,.85),0 0 40px -12px rgba(245,183,49,.18),inset 0 1px 0 rgba(255,255,255,.09)}
+.card__head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-bottom:13px;margin-bottom:15px;border-bottom:1px solid var(--line-soft)}
+.card__title{display:flex;align-items:center;gap:10px;font-size:15px;font-weight:800}
+.card__title i,.ico{display:grid;place-items:center;width:32px;height:32px;border-radius:11px;font-size:14px;font-style:normal;
+  background:linear-gradient(145deg,rgba(245,183,49,.22),rgba(91,108,255,.18));border:1px solid rgba(245,183,49,.25);color:var(--gold-1)}
+.hint{color:var(--text-dim);font-size:12px;line-height:2.1}
+
+/* ── فرم ── */
+.field{display:flex;flex-direction:column;gap:7px;margin-bottom:12px}
+.field label{font-size:12px;font-weight:800;color:var(--text-dim)}
+.input{
+  width:100%;font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;font-size:14px;direction:ltr;text-align:left;
+  color:var(--text);background:rgba(3,6,15,.65);border:1px solid var(--line);border-radius:13px;padding:13px 15px;outline:none;
+  box-shadow:inset 0 2px 6px rgba(0,0,0,.45);transition:border-color .2s,box-shadow .2s}
+.input:focus{border-color:rgba(245,183,49,.45);box-shadow:inset 0 2px 6px rgba(0,0,0,.45),0 0 0 3px rgba(245,183,49,.12)}
+.input::placeholder{color:#5b6480}
+
+/* ── گرید و آمار ── */
+.grid{display:grid;gap:14px}
+.grid--2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.grid--3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.grid--5{grid-template-columns:repeat(5,minmax(0,1fr))}
+.stat{padding:15px;border-radius:var(--radius-md);
+  background:linear-gradient(165deg,rgba(10,14,28,.9),rgba(5,8,18,.82));border:1px solid var(--line-soft);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06),inset 0 -2px 5px rgba(0,0,0,.4),0 10px 24px -14px rgba(0,0,0,.7);
+  transition:transform .25s ease,box-shadow .25s ease}
+.stat:hover{transform:translateY(-2px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.09),inset 0 -2px 5px rgba(0,0,0,.38),0 16px 30px -14px rgba(0,0,0,.75),0 0 26px -10px rgba(245,183,49,.18)}
+.stat__label{display:flex;align-items:center;gap:7px;font-size:11.5px;color:var(--text-dim);font-weight:700}
+.stat__value{font-size:clamp(16px,2vw,21px);font-weight:900;margin:6px 0 4px}
+.stat__sub{font-size:11px;color:var(--text-dim)}
+.mono{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;letter-spacing:.3px;direction:ltr}
+.up{color:#6ee7b7}.down{color:#fda4af}
+.flash-up{color:#34d399!important}.flash-down{color:#fb7185!important}
+
+/* گیج */
+.gauge{height:9px;border-radius:999px;background:rgba(0,0,0,.55);border:1px solid var(--line);overflow:hidden;padding:1.5px}
+.gauge__fill{height:100%;border-radius:999px;transition:width .8s cubic-bezier(.4,0,.2,1)}
+
+/* ردیف سلامت */
+.hrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 13px;border-radius:12px;
+  border:1px solid var(--line-soft);background:rgba(3,6,15,.55);font-size:12.5px}
+.hrow + .hrow{margin-top:7px}
+.hrow__label{display:flex;align-items:center;gap:8px;font-weight:700}
+.hrow__val{color:var(--text-dim);font-size:11.5px;text-align:left;direction:ltr}
+.dot{width:9px;height:9px;border-radius:50%;flex:none;box-shadow:0 0 8px currentColor}
+.dot--ok{background:#34d399;color:#34d399}
+.dot--bad{background:#fb7185;color:#fb7185}
+.hsec{font-size:11px;font-weight:900;color:var(--gold-1);margin:16px 0 8px;letter-spacing:.4px}
+
+/* چیپ */
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;padding:3px 10px;border-radius:999px}
+.chip--up{color:#6ee7b7;background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.35)}
+.chip--down{color:#fda4af;background:rgba(251,113,133,.12);border:1px solid rgba(251,113,133,.35)}
+.chip--range{color:var(--gold-1);background:rgba(245,183,49,.12);border:1px solid rgba(245,183,49,.35)}
+
+/* جدول */
+.tblwrap{overflow-x:auto}
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.tbl th{font-size:11px;color:var(--text-dim);text-align:right;padding:9px 10px;border-bottom:1px solid var(--line);font-weight:800;white-space:nowrap}
+.tbl td{padding:11px 10px;border-bottom:1px solid var(--line-soft);white-space:nowrap}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tbody tr{transition:background .18s}
+.tbl tbody tr:hover{background:rgba(245,183,49,.05)}
+.tier{display:inline-grid;place-items:center;min-width:34px;padding:3px 8px;border-radius:9px;font-weight:900;font-size:11.5px}
+.tier--a1{background:linear-gradient(180deg,#ffe9a8,var(--gold-2));color:#231803;box-shadow:0 2px 0 #6d4a0a}
+.tier--a{background:linear-gradient(180deg,#aab8ff,#5b6cff);color:#fff;box-shadow:0 2px 0 #23268a}
+.tier--b{background:rgba(139,157,255,.16);color:var(--indigo-1);border:1px solid rgba(139,157,255,.3)}
+
+/* سرخطی خبری */
+.newsrow{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;border:1px solid var(--line-soft);
+  background:rgba(3,6,15,.55);font-size:12.5px}
+.newsrow + .newsrow{margin-top:7px}
+
+/* نوار تیک */
+.strip{overflow:hidden;border-radius:999px;border:1px solid var(--line-soft);background:rgba(3,6,15,.55);padding:9px 0}
+.strip__in{display:flex;gap:26px;white-space:nowrap;animation:slide 36s linear infinite;will-change:transform;padding:0 14px}
+.strip:hover .strip__in{animation-play-state:paused}
+@keyframes slide{from{transform:translateX(0)}to{transform:translateX(50%)}}
+.tick{display:inline-flex;align-items:center;gap:7px;font-size:12px}
+.tick b{color:var(--gold-1)}
+
+/* اسپینر */
+.spin{width:16px;height:16px;border-radius:50%;border:2.5px solid rgba(35,24,3,.35);border-top-color:#231803;animation:spin .8s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* toast */
+.toast{position:fixed;bottom:22px;inset-inline:0;margin:auto;width:max-content;max-width:92vw;z-index:50;
+  padding:12px 20px;border-radius:14px;font-size:12.5px;font-weight:700;
+  background:linear-gradient(160deg,rgba(24,32,56,.97),rgba(8,11,24,.97));border:1px solid rgba(245,183,49,.35);color:var(--text);
+  box-shadow:0 18px 44px -14px rgba(0,0,0,.85),0 0 30px -8px rgba(245,183,49,.3);
+  opacity:0;transform:translateY(14px);transition:opacity .3s,transform .3s;pointer-events:none}
+.toast.on{opacity:1;transform:translateY(0)}
+
+.notice{padding:12px 14px;border-radius:13px;font-size:12px;line-height:2;border:1px solid rgba(245,183,49,.3);background:rgba(245,183,49,.07);color:var(--text-dim)}
+.notice b{color:var(--gold-1)}
+.notice--rose{border-color:rgba(251,113,133,.3);background:rgba(251,113,133,.07)}
+.notice--rose b{color:var(--rose)}
+.notice--emerald{border-color:rgba(52,211,153,.3);background:rgba(52,211,153,.07)}
+.notice--emerald b{color:#6ee7b7}
+
+details.raw{margin-top:12px}
+details.raw summary{cursor:pointer;font-size:11.5px;color:var(--text-dim);font-weight:700}
+details.raw pre{margin-top:8px;padding:12px;border-radius:11px;background:rgba(0,0,0,.5);border:1px solid var(--line-soft);
+  font-size:10.5px;direction:ltr;text-align:left;overflow-x:auto;color:#b9c3e0;max-height:240px;overflow-y:auto}
+
+.hide{display:none!important}
+footer{margin-top:24px;text-align:center;color:var(--text-dim);font-size:11px;line-height:2.1}
+
+/* ── رسپانسیو ── */
+@media (max-width:1024px){
+  .grid--5{grid-template-columns:repeat(3,1fr)}
+  .grid--3{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:640px){
+  .shell{padding:12px 10px 34px}
+  .grid--2,.grid--3,.grid--5{grid-template-columns:1fr}
+  .tabs{gap:7px}
+  .tab{font-size:11.5px;padding:12px 6px;border-radius:14px}
+  .tab span{display:none}
+  .card{padding:15px;border-radius:16px}
+  .btn{width:100%}
+  .btn--sm{width:auto}
+  .hrow{flex-direction:column;align-items:flex-start;gap:4px}
+  .hrow__val{text-align:right;direction:rtl}
+  .strip{font-size:11px}
+}
+@media (hover:none){.card:hover{transform:none}.btn:hover{transform:none}.tab:active{transform:translateY(2px)}}
+@media (prefers-reduced-motion:reduce){.strip__in{animation:none}.btn::after{display:none}.card,.stat,.btn,.tab{transition:none}}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ═══ هدر ═══ -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand__gem">M</div>
+      <div>
+        <div class="brand__t">میلانو <b>تریدر</b></div>
+        <div class="brand__s">HOST LINK · نسخهٔ ۵٫۸ — اتصال هاست · بازار زنده · موتور سیگنال</div>
+      </div>
+    </div>
+    <div class="topbar__chips">
+      <span class="badge" id="netBadge">🌐 شبکه: —</span>
+      <span class="badge badge--gold" id="verBadge">v5.8</span>
+    </div>
+  </header>
+
+  <!-- ═══ تب‌ها ═══ -->
+  <nav class="tabs" style="margin-bottom:16px">
+    <button class="tab tab--on" data-tab="connect"><i>🛰️</i> <span>اتصال به هاست</span></button>
+    <button class="tab" data-tab="live"><i>📈</i> <span>بازار زنده</span></button>
+    <button class="tab" data-tab="engine"><i>🧪</i> <span>موتور سیگنال</span></button>
+  </nav>
+
+  <!-- ═══ تب ۱: اتصال به هاست ═══ -->
+  <section class="stack" id="tab-connect">
+    <div class="card">
+      <div class="card__head">
+        <h2 class="card__title"><i>🛰️</i> اتصال به پنل میلانو روی هاست cPanel</h2>
+        <span class="badge badge--indigo">سلامت‌سنجی کامل پیش از ورود</span>
+      </div>
+
+      <div class="field">
+        <label for="serverUrl">نشانی پنل روی هاست (پوشهٔ نصب‌شده)</label>
+        <input class="input" id="serverUrl" type="url" inputmode="url" autocomplete="off" spellcheck="false"
+               placeholder="https://yourdomain.com/trader">
+      </div>
+
+      <div style="display:flex;gap:9px;flex-wrap:wrap">
+        <button class="btn btn--gold" id="btnHealth">🩺 بررسی سلامت اتصال</button>
+        <button class="btn btn--indigo" id="btnOpen">🚀 ورود به پنل</button>
+        <button class="btn btn--sm" id="btnForget" style="align-self:center">🧹 فراموشی نشانی</button>
+      </div>
+
+      <div id="healthOut" style="margin-top:14px"></div>
+
+      <div class="notice" style="margin-top:14px">
+        <b>راهنمای نشانی:</b> همان URL که در مرورگر پنل را باز می‌کند وارد کنید (با <span class="mono">https://</span>).
+        اگر پنل در ریشهٔ دامنه است فقط دامنه کافی است؛ اگر در پوشه است، مسیر پوشه را هم بنویسید.
+        دکمهٔ برگشت گوشی شما را از پنل به همین صفحه برمی‌گرداند.
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card__head"><h2 class="card__title"><i>📋</i> چک‌لیست نصب روی cPanel (خلاصه)</h2></div>
+      <div class="hrow"><span class="hrow__label"><span class="dot dot--ok"></span> آپلود</span><span class="hint">کل فایل‌های پروژه در <span class="mono">public_html</span> (مثلاً پوشهٔ <span class="mono">trader</span>)</span></div>
+      <div class="hrow"><span class="hrow__label"><span class="dot dot--ok"></span> دیتابیس</span><span class="hint">MySQL بسازید و در تب «پایگاه‌داده» تنظیمات را تست و جداول را بسازید</span></div>
+      <div class="hrow"><span class="hrow__label"><span class="dot dot--ok"></span> کلیدهای AI</span><span class="hint">تب «هوش مصنوعی» ← کلیدها ← تست ← انتخاب هوشمند</span></div>
+      <div class="hrow"><span class="hrow__label"><span class="dot dot--ok"></span> کران داوری</span><span class="hint">Cron ساعتی: <span class="mono">api/tracker.php?action=run&amp;key=…</span></span></div>
+      <div class="hrow"><span class="hrow__label"><span class="dot dot--ok"></span> نیازمندی PHP</span><span class="hint">‏PHP ≥ 7.4 با افزونه‌های <span class="mono">curl, pdo_mysql, mbstring, openssl</span></span></div>
+    </div>
+  </section>
+
+  <!-- ═══ تب ۲: بازار زنده (بدون سرور) ═══ -->
+  <section class="stack hide" id="tab-live">
+    <div class="card">
+      <div class="card__head">
+        <h2 class="card__title"><i>📈</i> بازار زندهٔ واقعی — بدون نیاز به هیچ سروری</h2>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <span class="badge" id="wsBadge">🛰️ وب‌سوکت: خاموش</span>
+          <button class="btn btn--indigo btn--sm" id="btnRefreshLive">🔄 تازه‌سازی</button>
+        </div>
+      </div>
+
+      <div id="liveBanner"></div>
+
+      <div class="grid grid--3" style="margin-bottom:14px">
+        <div class="stat">
+          <div class="stat__label">₿ بیت‌کوین — لنگر بازار</div>
+          <div class="stat__value mono" id="btcPrice">—</div>
+          <div class="stat__sub" id="btcSub">در حال اتصال به بایننس…</div>
+        </div>
+        <div class="stat">
+          <div class="stat__label">😌 ترس و طمع بازار</div>
+          <div class="stat__value" id="fgValue">—</div>
+          <div class="stat__sub"><div class="gauge"><div class="gauge__fill" id="fgFill" style="width:50%;background:linear-gradient(90deg,#34d399,#fb7185)"></div></div><span id="fgLabel">—</span></div>
+        </div>
+        <div class="stat">
+          <div class="stat__label">🔗 وضعیت جریان داده</div>
+          <div class="stat__value" id="liveState">—</div>
+          <div class="stat__sub" id="liveStateSub">REST + WebSocket عمومی بایننس</div>
+        </div>
+      </div>
+
+      <div class="grid grid--5" id="coinGrid"></div>
+
+      <div class="strip" style="margin-top:14px"><div class="strip__in" id="strip">
+        <span class="mono" style="color:var(--text-dim)">در انتظار دادهٔ بازار…</span>
+      </div></div>
+
+      <div class="notice" style="margin-top:13px">
+        <b>نکته:</b> این تب مستقیماً از گوشی شما به API عمومی بایننس وصل می‌شود (بدون سرور و بدون کلید).
+        اگر اپراتور شما دسترسی به بایننس را محدود کرده باشد، حالت شبیه‌سازی خودکار فعال می‌شود تا رابط کاربری زنده بماند.
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ تب ۳: موتور (نمایشی) ═══ -->
+  <section class="stack hide" id="tab-engine">
+    <div class="card">
+      <div class="card__head">
+        <h2 class="card__title"><i>📡</i> لایهٔ هفتم — سنتیمنت آن‌چین و ریسک خبری</h2>
+        <span class="badge">نمایش موتور ۳۴ فیلتری</span>
+      </div>
+      <div class="grid grid--3" style="margin-bottom:13px">
+        <div class="stat"><div class="stat__label">😤 ترس و طمع (خلاف‌گردش)</div><div class="stat__value" id="engFg">—</div><div class="stat__sub" id="engFgSub">منبع: alternative.me</div></div>
+        <div class="stat"><div class="stat__label">🌍 مومنتوم کل بازار ۲۴س</div><div class="stat__value" id="engMk">—</div><div class="stat__sub">تغییر ارزش کل بازار کریپتو</div></div>
+        <div class="stat"><div class="stat__label">📰 وزن اخبار آن‌چین</div><div class="stat__value" id="engNw">—</div><div class="stat__sub">پنجرهٔ ۲۴ ساعت · وزن کلیدواژه‌ای</div></div>
+      </div>
+      <div id="engHeadlines"></div>
+      <p class="hint" style="margin-top:11px">ترکیب نرم سه منبع با بازتوزیع وزن؛ فیلتر ۳۴ «ریسک خبری» در بحران (نمرهٔ ≤ ‎−۰٫۴۵‎) ورود تازه را بدون تغییر جهت سیگنال متوقف می‌کند. اعداد این تب در حالت نمایشی معرف الگو هستند؛ مقادیر زندهٔ واقعی در تب «بازار زنده» و پنل متصل می‌آیند.</p>
+    </div>
+
+    <div class="card">
+      <div class="card__head">
+        <h2 class="card__title"><i>🎯</i> سیگنال‌های فعال — قیف ۹ مرحله‌ای</h2>
+        <span class="badge badge--gold">آخرین اسکن: ۱۲۰ ارز · ۶ خنک‌شده</span>
+      </div>
+      <div class="tblwrap">
+      <table class="tbl">
+        <thead><tr><th>نماد</th><th>سمت</th><th>درجه</th><th>رژیم</th><th>فیلترها</th><th>اعتماد</th><th>ورود</th><th>استاپ</th><th>TP1</th><th>R:R</th><th>حجم</th></tr></thead>
+        <tbody>
+          <tr><td class="mono"><b>SOLUSDT</b></td><td class="up">خرید</td><td><span class="tier tier--a1">A+</span></td><td><span class="chip chip--up">صعودی</span></td><td>۳۱/۳۴</td><td>۸۹</td><td class="mono">214.60</td><td class="mono">207.90</td><td class="mono">226.10</td><td>۱:۳٫۲</td><td>۵٪</td></tr>
+          <tr><td class="mono"><b>ETHUSDT</b></td><td class="up">خرید</td><td><span class="tier tier--a">A</span></td><td><span class="chip chip--up">صعودی</span></td><td>۲۹/۳۴</td><td>۸۴</td><td class="mono">3,842</td><td class="mono">3,725</td><td class="mono">3,980</td><td>۱:۲٫۸</td><td>۴٪</td></tr>
+          <tr><td class="mono"><b>AVAXUSDT</b></td><td class="up">خرید</td><td><span class="tier tier--a">A</span></td><td><span class="chip chip--range">رِنج</span></td><td>۲۸/۳۴</td><td>۸۱</td><td class="mono">54.20</td><td class="mono">52.60</td><td class="mono">56.80</td><td>۱:۲٫۶</td><td>۳٪</td></tr>
+          <tr><td class="mono"><b>LINKUSDT</b></td><td class="down">فروش</td><td><span class="tier tier--b">B</span></td><td><span class="chip chip--down">نزولی</span></td><td>۲۶/۳۴</td><td>۷۴</td><td class="mono">27.90</td><td class="mono">28.80</td><td class="mono">26.10</td><td>۱:۲٫۲</td><td>۲٪</td></tr>
+        </tbody>
+      </table>
+      </div>
+    </div>
+
+    <div class="grid grid--2">
+      <div class="card">
+        <div class="card__head"><h2 class="card__title"><i>🧠</i> یادگیری تطبیقی — ضرایب رژیم‌آگاه</h2><span class="badge badge--ok">نسل ۲۴ · داوری ۴۱۲</span></div>
+        <div class="tblwrap">
+        <table class="tbl">
+          <thead><tr><th>فیلتر</th><th>رأی</th><th>درستی</th><th>ضریب</th><th>وضعیت</th></tr></thead>
+          <tbody>
+            <tr><td>RSI (تأییدگر)</td><td>۴۱۲</td><td>۸۴٪</td><td class="mono up">×۱٫۰۸</td><td><span class="chip chip--up">فعال</span></td></tr>
+            <tr><td>hlv climax (بازار گرم)</td><td>۳۸۸</td><td>۷۲٪</td><td class="mono down">×۰٫۹۲</td><td><span class="chip chip--up">فعال</span></td></tr>
+            <tr><td>فشردگی بولینگر</td><td>۲۰۱</td><td>۶۸٪</td><td class="mono">×۱٫۰۰</td><td><span class="chip chip--range">نسبی</span></td></tr>
+            <tr><td>فیلتر آزمایشی X</td><td>۹۶</td><td>۳۸٪</td><td class="mono down">×۰٫۳۵</td><td><span class="chip chip--down">قرنطینه</span></td></tr>
+          </tbody>
+        </table>
+        </div>
+        <p class="hint" style="margin-top:11px">وزن هر داوری با نیم‌عمر ۴۵ روز محو می‌شود؛ walk-forward ۷۰/۳۰ هر پیشنهاد را قبل از اجرا می‌سنجد.</p>
+      </div>
+
+      <div class="card">
+        <div class="card__head"><h2 class="card__title"><i>📓</i> ژورنال فرصت‌های نزدیک</h2><span class="badge">۵ فرصت زیر نظر</span></div>
+        <div class="newsrow"><span class="badge badge--gold">NM</span> NEAR1USDT — ۳۳/۳۴ فیلتر · فقط ۱ فیلتر مانع · زیر نظر داوری</div>
+        <div class="newsrow"><span class="badge badge--gold">NM</span> NEAR2USDT — امتیاز ۵۸ (آستانه ۶۲) · در پنجرهٔ یادگیری</div>
+        <div class="newsrow"><span class="badge badge--gold">NM</span> NEAR3USDT — R:R ۱:۱٫۸ زیر حد ساختاری · رد شد</div>
+        <div class="grid grid--3" style="margin-top:13px">
+          <div class="stat"><div class="stat__label">برد داوری کل</div><div class="stat__value up">۶۴٪</div><div class="stat__sub">۳۱۲ سیگنال بسته‌شده</div></div>
+          <div class="stat"><div class="stat__label">میانگین R</div><div class="stat__value">+۰٫۴۱</div><div class="stat__sub">پس از کارمزد و لغزش</div></div>
+          <div class="stat"><div class="stat__label">حساب کاغذی</div><div class="stat__value">$11,240</div><div class="stat__sub">+۱۲٫۴٪ از شروع</div></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    میلانو تریدر · HOST LINK v5.8 · com.meelano.panel — Milad Yaghoobi · Meelano Studio Design<br>
+    تب «اتصال به هاست» پس از استقرار پنل روی cPanel فعال می‌شود · تب «بازار زنده» مستقیماً از API عمومی بایننس تغذیه می‌کند
+  </footer>
+</div>
+
+<div class="toast" id="toast">💖</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ── ابزارها ── */
+  var $ = function (id) { return document.getElementById(id); };
+  var toastEl = $('toast'), tTimer = null;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('on');
+    clearTimeout(tTimer);
+    tTimer = setTimeout(function () { toastEl.classList.remove('on'); }, 2800);
+  }
+  function fa(n) { return String(n).replace(/\d/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'[+d]; }); }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+  function fmtPrice(p) {
+    p = parseFloat(p);
+    if (!isFinite(p)) { return '—'; }
+    if (p >= 1000) { return '$' + Math.round(p).toLocaleString('en-US'); }
+    if (p >= 1) { return '$' + p.toFixed(2); }
+    if (p >= 0.01) { return '$' + p.toFixed(3); }
+    return '$' + p.toFixed(6);
+  }
+
+  /* ── تب‌ها ── */
+  var tabs = document.querySelectorAll('.tab');
+  var panels = { connect: $('tab-connect'), live: $('tab-live'), engine: $('tab-engine') };
+  var liveStarted = false;
+  for (var i = 0; i < tabs.length; i++) {
+    (function (t) {
+      t.addEventListener('click', function () {
+        for (var j = 0; j < tabs.length; j++) { tabs[j].classList.remove('tab--on'); }
+        t.classList.add('tab--on');
+        for (var k in panels) { panels[k].classList.toggle('hide', k !== t.getAttribute('data-tab')); }
+        if (t.getAttribute('data-tab') === 'live' && !liveStarted) { liveStarted = true; startLive(); }
+        if (t.getAttribute('data-tab') === 'engine') { startEngine(); }
+      });
+    })(tabs[i]);
+  }
+
+  /* ═══ تب ۱: اتصال به هاست ═══════════════════════════════════════ */
+
+  var savedUrl = '';
+  try { savedUrl = localStorage.getItem('meelano_server') || ''; } catch (e) { savedUrl = ''; }
+  if (savedUrl) { $('serverUrl').value = savedUrl; }
+
+  function normalizeUrl(raw) {
+    var u = String(raw || '').trim();
+    if (!u) { return ''; }
+    if (!/^https?:\/\//i.test(u)) { u = 'https://' + u; }
+    return u.replace(/\/+$/, '');
+  }
+
+  $('btnForget').addEventListener('click', function () {
+    try { localStorage.removeItem('meelano_server'); } catch (e) {}
+    $('serverUrl').value = '';
+    $('healthOut').innerHTML = '';
+    toast('🧹 نشانی سرور پاک شد');
+  });
+
+  $('btnOpen').addEventListener('click', function () {
+    var u = normalizeUrl($('serverUrl').value);
+    if (!u) { toast('⚠️ نشانی پنل را وارد کنید'); return; }
+    try { localStorage.setItem('meelano_server', u); } catch (e) {}
+    toast('🚀 در حال ورود به پنل… برای بازگشت، دکمهٔ برگشت گوشی را بزنید');
+    setTimeout(function () { window.location.href = u + '/login.php'; }, 450);
+  });
+
+  function healthRow(label, val, ok) {
+    return '<div class="hrow"><span class="hrow__label"><span class="dot ' + (ok ? 'dot--ok' : 'dot--bad') + '"></span>' +
+      esc(label) + '</span><span class="hrow__val">' + esc(val) + '</span></div>';
+  }
+
+  function renderHealth(rawText, elapsedMs) {
+    var out = $('healthOut');
+    var h = null;
+    try { h = JSON.parse(rawText); } catch (e) { h = null; }
+
+    if (!h) {
+      out.innerHTML = '<div class="notice notice--rose"><b>پاسخ قابل تفسیر نبود.</b><br>سرور پاسخ داد اما خروجی JSON سلامت نبود — ' +
+        'احتمالاً نشانی اشتباه است (صفحهٔ عادی سایت باز شده) یا هاست صفحهٔ خطا برمی‌گرداند.</div>' +
+        '<details class="raw"><summary>پاسخ خام (۲۰۰ کاراکتر اول)</summary><pre>' + esc(String(rawText).slice(0, 200)) + '</pre></details>';
+      return;
+    }
+
+    if (h.ok !== true && h.error) {
+      var msgs = {
+        'http': (h.http === 404 ? 'مسیر پیدا نشد (۴۰۴) — نشانی پوشهٔ نصب پنل را کامل و دقیق وارد کنید.'
+                                : 'سرور کد HTTP ' + fa(h.http || '?') + ' برگرداند — لاگ هاست را ببینید.'),
+        'network': 'سرور پاسخ نداد — دامنه، SSL یا فایروال هاست را بررسی کنید (یا سایت پایین است).',
+        'redirect': 'هدایت (redirect) نامعتبر بود — نشانی نهایی پنل را مستقیم وارد کنید.',
+        'redirects': 'چرخش بی‌پایان هدایت‌ها — نشانی نهایی پنل را مستقیم وارد کنید.',
+        'empty': 'پاسخ خالی از سرور آمد.'
+      };
+      out.innerHTML = '<div class="notice notice--rose"><b>اتصال سلامت‌سنجی نشد.</b><br>' + (msgs[h.error] || esc(h.error)) + '</div>';
+      return;
+    }
+
+    var html = '';
+    var healthy = h.healthy === true;
+    html += '<div class="notice ' + (healthy ? 'notice--emerald' : 'notice--rose') + '"><b>' +
+      (healthy ? '✓ سرور سالم است — همهٔ بررسی‌ها پاس شدند.' : '⚠ سرور پاسخ داد اما بعضی بررسی‌ها ناقص‌اند (پایین را ببینید).') +
+      '</b>' + (h.version ? ' · نسخهٔ پنل: <span class="mono">' + esc(h.version) + '</span>' : '') +
+      (h.codename ? ' · ' + esc(h.codename) : '') +
+      (typeof elapsedMs === 'number' ? ' · زمان پاسخ: ' + fa(Math.round(elapsedMs)) + 'ms' : '') +
+      (h.jalali_date ? ' · ' + esc(h.jalali_date) : '') + '</div>';
+
+    if (h.checks) {
+      var order = ['php', 'db', 'schema', 'ai', 'routing', 'writable_config', 'writable_storage/uploads', 'writable_storage/logs'];
+      var keys = Object.keys(h.checks);
+      keys.sort(function (a, b) {
+        var ia = order.indexOf(a), ib = order.indexOf(b);
+        return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+      });
+      html += '<div class="hsec">بررسی‌های سلامت</div>';
+      for (var i = 0; i < keys.length; i++) {
+        var c = h.checks[keys[i]];
+        if (!c || !c.label) { continue; }
+        html += healthRow(c.label, c.value, c.ok === true);
+      }
+    }
+
+    if (h.providers) {
+      var pk = Object.keys(h.providers);
+      html += '<div class="hsec">ارائه‌دهندگان هوش مصنوعی</div>';
+      for (var j = 0; j < pk.length; j++) {
+        var p = h.providers[pk[j]];
+        var st = p.ok ? 'سالم' + (p.latency_ms != null ? ' · ' + fa(p.latency_ms) + 'ms' : '')
+                      : (p.configured ? 'پیکربندی‌شده · تست‌نشده/خطا' : 'بدون کلید');
+        html += healthRow(p.label || pk[j], st, p.ok === true);
+      }
+    }
+
+    if (h.stats) {
+      html += '<div class="hsec">آمار پنل</div>';
+      html += healthRow('سیگنال‌های ثبت‌شده', fa(h.stats.signals || 0), true);
+      html += healthRow('سیگنال‌های خرید', fa(h.stats.buys || 0), true);
+      html += healthRow('میانگین اعتماد', fa(h.stats.avg_score || 0), true);
+    }
+
+    html += '<details class="raw"><summary>پاسخ کامل JSON</summary><pre>' +
+      esc(JSON.stringify(h, null, 1)) + '</pre></details>';
+
+    out.innerHTML = html;
+  }
+
+  $('btnHealth').addEventListener('click', function () {
+    var u = normalizeUrl($('serverUrl').value);
+    if (!u) { toast('⚠️ نشانی پنل را وارد کنید'); return; }
+    try { localStorage.setItem('meelano_server', u); } catch (e) {}
+
+    if (!window.MeelanoBridge || !window.MeelanoBridge.healthCheck) {
+      $('healthOut').innerHTML = '<div class="notice"><b>سلامت‌سنجی فقط داخل اپ اندروید میلانو فعال است.</b><br>' +
+        'این فایل را در مرورگر باز کرده‌اید؛ پل بومی شبکه در دسترس نیست. در اپ نصب‌شده این دکمه از ' +
+        '<span class="mono">' + esc(u) + '/api/health.php</span> پاسخ می‌گیرد.</div>';
+      return;
+    }
+
+    $('healthOut').innerHTML = '<div class="notice"><span class="spin" style="vertical-align:-3px;margin-inline-end:8px"></span>' +
+      'در حال تماس با <span class="mono">' + esc(u) + '/api/health.php</span> …</div>';
+    var endpoint = u + '/api/health.php';
+    var t0 = Date.now();
+    setTimeout(function () {
+      var raw = '';
+      try { raw = window.MeelanoBridge.healthCheck(endpoint); } catch (e) { raw = '{"ok":false,"error":"network"}'; }
+      renderHealth(raw, Date.now() - t0);
+    }, 60);
+  });
+
+  /* ═══ تب ۲: بازار زنده (REST + WebSocket بایننس) ════════════════ */
+
+  var SYMS = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'DOGEUSDT', 'AVAXUSDT', 'LINKUSDT', 'TONUSDT', 'ADAUSDT'];
+  var NAMES = { BTCUSDT: 'بیت‌کوین', ETHUSDT: 'اتریوم', SOLUSDT: 'سولانا', BNBUSDT: 'BNB', XRPUSDT: 'ریپل', DOGEUSDT: 'دوج', AVAXUSDT: 'آوالانچ', LINKUSDT: 'چین‌لینک', TONUSDT: 'تون‌کوین', ADAUSDT: 'کاردانو' };
+  var live = { ws: null, retries: 0, alive: false, lastMsg: 0, rate: 0, rateTimer: null, simulated: false, data: {}, started: false };
+
+  function setWsBadge(text, cls) {
+    var b = $('wsBadge');
+    b.textContent = text;
+    b.className = 'badge' + (cls ? ' ' + cls : '');
+  }
+  function setNet(text, cls) {
+    var b = $('netBadge');
+    if (b) { b.textContent = text; b.className = 'badge' + (cls ? ' ' + cls : ''); }
+  }
+
+  function coinCard(sym, price, pct) {
+    var up = pct >= 0;
+    return '<div class="stat" id="coin-' + sym + '">' +
+      '<div class="stat__label"><b class="mono">' + sym.replace('USDT', '') + '</b> · ' + (NAMES[sym] || '') + '</div>' +
+      '<div class="stat__value mono" id="cp-' + sym + '">' + fmtPrice(price) + '</div>' +
+      '<div class="stat__sub"><span class="' + (up ? 'up' : 'down') + '" id="cc-' + sym + '">' + (up ? '▲' : '▼') + ' ' +
+      fa(Math.abs(pct).toFixed(2)) + '٪</span> · ۲۴ ساعت</div></div>';
+  }
+
+  function renderGrid() {
+    var html = '';
+    for (var i = 0; i < SYMS.length; i++) {
+      var d = live.data[SYMS[i]] || { price: 0, pct: 0 };
+      html += coinCard(SYMS[i], d.price, d.pct);
+    }
+    $('coinGrid').innerHTML = html;
+  }
+
+  function applyTick(sym, price, pct) {
+    if (!isFinite(price)) { return; }
+    var prev = live.data[sym] || { price: price, pct: pct };
+    live.data[sym] = { price: price, pct: isFinite(pct) ? pct : prev.pct };
+    var pEl = $('cp-' + sym), cEl = $('cc-' + sym);
+    if (pEl) {
+      pEl.textContent = fmtPrice(price);
+      if (price !== prev.price) {
+        pEl.className = 'stat__value mono ' + (price > prev.price ? 'flash-up' : 'flash-down');
+        setTimeout(function (el) { return function () { el.className = 'stat__value mono'; }; }(pEl), 500);
+      }
+    }
+    if (cEl && isFinite(pct)) {
+      var up = pct >= 0;
+      cEl.className = up ? 'up' : 'down';
+      cEl.textContent = (up ? '▲' : '▼') + ' ' + fa(Math.abs(pct).toFixed(2)) + '٪';
+    }
+    if (sym === 'BTCUSDT') {
+      $('btcPrice').textContent = fmtPrice(price);
+      $('btcSub').textContent = (pct >= 0 ? '🟢' : '🔴') + ' تغییر ۲۴ ساعته: ' + fa(pct.toFixed(2)) + '٪';
+    }
+    // نوار متحرک
+    var nodes = document.querySelectorAll('.tick[data-sym="' + sym + '"]');
+    for (var i = 0; i < nodes.length; i++) {
+      var tp = nodes[i].querySelector('.tick__p'), tc = nodes[i].querySelector('.tick__c');
+      if (tp) { tp.textContent = fmtPrice(price); }
+      if (tc) {
+        var u2 = pct >= 0;
+        tc.className = 'tick__c ' + (u2 ? 'up' : 'down');
+        tc.textContent = (u2 ? '▲' : '▼') + ' ' + fa(Math.abs(pct).toFixed(2)) + '٪';
+      }
+    }
+  }
+
+  function renderStrip() {
+    var items = '';
+    for (var i = 0; i < SYMS.length; i++) {
+      var s = SYMS[i];
+      var d = live.data[s] || { price: 0, pct: 0 };
+      var up = d.pct >= 0;
+      items += '<span class="tick" data-sym="' + s + '"><b>' + s.replace('USDT', '') + '</b> ' +
+        '<span class="tick__p mono">' + fmtPrice(d.price) + '</span> ' +
+        '<span class="tick__c ' + (up ? 'up' : 'down') + '">' + (up ? '▲' : '▼') + ' ' + fa(Math.abs(d.pct).toFixed(2)) + '٪</span></span>';
+    }
+    $('strip').innerHTML = items + items;
+  }
+
+  function loadFearGreed() {
+    fetch('https://api.alternative.me/fng/?limit=1')
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var row = j && j.data && j.data[0];
+        if (!row) { return; }
+        var v = parseInt(row.value, 10) || 0;
+        $('fgValue').textContent = fa(v) + '/۱۰۰';
+        $('fgFill').style.width = Math.max(2, Math.min(100, v)) + '%';
+        $('fgLabel').textContent = row.value_classification || '';
+        var e1 = $('engFg'), e2 = $('engFgSub');
+        if (e1) { e1.textContent = fa(v) + '/۱۰۰'; }
+        if (e2) { e2.textContent = 'زنده · ' + (row.value_classification || ''); }
+      })
+      .catch(function () { /* بدون FG هم ادامه */ });
+  }
+
+  function fetchTickers() {
+    var q = encodeURIComponent(JSON.stringify(SYMS));
+    return fetch('https://api.binance.com/api/v3/ticker/24hr?symbols=' + q)
+      .then(function (r) {
+        if (!r.ok) { throw new Error('http ' + r.status); }
+        return r.json();
+      })
+      .then(function (arr) {
+        for (var i = 0; i < arr.length; i++) {
+          applyTick(arr[i].symbol, parseFloat(arr[i].lastPrice), parseFloat(arr[i].priceChangePercent));
+        }
+        renderStrip();
+      });
+  }
+
+  function startSimulation(reason) {
+    if (live.simulated) { return; }
+    live.simulated = true;
+    live.alive = false;
+    setWsBadge('🛰️ شبیه‌سازی (بدون دسترسی به بایننس)', 'badge--bad');
+    setNet('🌐 شبکه: محدود', 'badge--bad');
+    $('liveState').textContent = 'شبیه‌سازی';
+    $('liveState').style.color = '#fbbf24';
+    $('liveStateSub').textContent = reason;
+    $('liveBanner').innerHTML = '<div class="notice notice--rose" style="margin-bottom:13px"><b>دسترسی به API بایننس از این شبکه ممکن نیست.</b><br>' +
+      'ممکن است اپراتور اینترنت شما بایننس را محدود کرده باشد. حالت شبیه‌سازی زنده فعال شد؛ برای دادهٔ واقعی از VPN استفاده کنید یا از تب «اتصال به هاست» با پنل نصب‌شده روی هاست خارجی کار کنید.</div>';
+    var base = { BTCUSDT: 97482, ETHUSDT: 3842, SOLUSDT: 214.6, BNBUSDT: 712, XRPUSDT: 2.41, DOGEUSDT: 0.318, AVAXUSDT: 54.2, LINKUSDT: 27.9, TONUSDT: 5.32, ADAUSDT: 0.98 };
+    for (var i = 0; i < SYMS.length; i++) {
+      var s = SYMS[i];
+      live.data[s] = live.data[s] || { price: base[s] || 100, pct: (Math.random() * 6 - 3) };
+    }
+    renderGrid(); renderStrip();
+    applyTick('BTCUSDT', live.data.BTCUSDT.price, live.data.BTCUSDT.pct);
+    setInterval(function () {
+      var s = SYMS[Math.floor(Math.random() * SYMS.length)];
+      var drift = (Math.random() - 0.5) * 0.004;
+      var d = live.data[s];
+      applyTick(s, d.price * (1 + drift), d.pct + drift * 100 * 4);
+    }, 1600);
+  }
+
+  function wsConnect() {
+    if (live.simulated) { return; }
+    if (!('WebSocket' in window)) { startSimulation('مرورگر WebSocket ندارد'); return; }
+    var streams = SYMS.map(function (s) { return s.toLowerCase() + '@miniTicker'; }).join('/');
+    var url = 'wss://stream.binance.com:9443/stream?streams=' + streams;
+    setWsBadge('🛰️ وب‌سوکت: در حال اتصال…', '');
+    var sock;
+    try { sock = new WebSocket(url); } catch (e) { startSimulation('ساخت WebSocket ممکن نبود'); return; }
+    live.ws = sock;
+    sock.onopen = function () {
+      live.alive = true; live.retries = 0; live.lastMsg = Date.now();
+      setWsBadge('🛰️ وب‌سوکت: زنده 🟢', 'badge--ok');
+      setNet('🌐 شبکه: متصل', 'badge--ok');
+      $('liveState').textContent = 'زنده';
+      $('liveState').style.color = '#34d399';
+      $('liveStateSub').textContent = 'جریان لحظه‌ای miniTicker بایننس';
+      if (live.rateTimer) { clearInterval(live.rateTimer); }
+      live.rateTimer = setInterval(function () {
+        if (!live.alive) { return; }
+        if ((Date.now() - live.lastMsg) / 1000 > 75) {
+          try { sock.close(); } catch (e) {}
+        } else {
+          setWsBadge('🛰️ وب‌سوکت: زنده · ' + fa(live.rate) + ' پیام/ث', 'badge--ok');
+          live.rate = 0;
+        }
+      }, 1000);
+    };
+    sock.onmessage = function (ev) {
+      live.lastMsg = Date.now(); live.rate++;
+      var d = null;
+      try { d = JSON.parse(ev.data); } catch (e) { return; }
+      var t = d && d.data ? d.data : d;
+      if (!t || !t.s) { return; }
+      var c = parseFloat(t.c), o = parseFloat(t.o);
+      var pct = isFinite(c) && isFinite(o) && o > 0 ? ((c - o) / o) * 100 : 0;
+      applyTick(t.s, c, pct);
+    };
+    sock.onclose = function () {
+      live.alive = false;
+      if (live.rateTimer) { clearInterval(live.rateTimer); live.rateTimer = null; }
+      if (live.simulated) { return; }
+      if (live.retries < 4) {
+        live.retries++;
+        setWsBadge('🛰️ وب‌سوکت: بازاتصال ' + fa(live.retries) + '/۴…', '');
+        setTimeout(wsConnect, Math.min(15000, 1200 * live.retries * live.retries));
+      } else {
+        setWsBadge('🛰️ وب‌سوکت: قطع — تازه‌سازی دوره‌ای', 'badge--bad');
+        $('liveState').textContent = 'تازه‌سازی ۳۰ث';
+        $('liveState').style.color = '#fbbf24';
+        $('liveStateSub').textContent = 'وب‌سوکت در دسترس نیست؛ هر ۳۰ ثانیه REST تازه می‌شود';
+        setInterval(function () { fetchTickers().catch(function () {}); }, 30000);
+      }
+    };
+    sock.onerror = function () { try { sock.close(); } catch (e) {} };
+  }
+
+  function startLive() {
+    if (live.started) { return; }
+    live.started = true;
+    renderGrid();
+    loadFearGreed();
+    fetchTickers()
+      .then(function () {
+        $('liveState').textContent = 'در حال اتصال…';
+        $('liveState').style.color = '#fbbf24';
+        wsConnect();
+      })
+      .catch(function () {
+        startSimulation('دریافت اولیهٔ داده از api.binance.com ممکن نشد');
+      });
+  }
+
+  $('btnRefreshLive').addEventListener('click', function () {
+    if (live.simulated) { toast('🔒 در حالت شبیه‌سازی هستید — دسترسی شبکه کافی نیست'); return; }
+    fetchTickers()
+      .then(function () { toast('✓ داده‌ها از بایننس تازه شد'); })
+      .catch(function () { toast('⚠ تازه‌سازی ناموفق بود'); });
+    loadFearGreed();
+  });
+
+  /* ═══ تب ۳: موتور (نمایشی) ══════════════════════════════════════ */
+
+  var engineStarted = false;
+  function startEngine() {
+    if (engineStarted) { return; }
+    engineStarted = true;
+    // اگر FG زنده در تب ۲ آمده باشد همان می‌ماند؛ در غیر این صورت نمونهٔ نمایشی
+    if (!$('engFg').textContent || $('engFg').textContent === '—') {
+      $('engFg').textContent = '۷۲/۱۰۰';
+      $('engFgSub').textContent = 'نمایشی · Greed';
+    }
+    $('engMk').innerHTML = '<span style="color:#34d399">+۳٫۲٪</span>';
+    $('engNw').innerHTML = '<span style="color:#34d399">+۲۸</span>';
+    $('engHeadlines').innerHTML =
+      '<div class="newsrow"><span class="badge badge--ok">▲ خوش‌بینی ۲٫۵</span> Bitcoin ETF inflows hit record high amid institutional adoption</div>' +
+      '<div class="newsrow"><span class="badge badge--ok">▲ خوش‌بینی ۱٫۷</span> Ethereum adoption grows with new institutional partnership</div>' +
+      '<div class="newsrow"><span class="badge badge--bad">▼ ریسک ۲٫۵</span> Exchange hack wipes 200M — users urged to withdraw</div>';
+  }
+})();
+</script>
+</body>
+</html>

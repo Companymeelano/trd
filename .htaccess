@@ -1,0 +1,44 @@
+# ═════════════════════════════════════════════════════════════════════
+# میلانو تریدینگ اینتلیجنس — پیکربندی امنیتی Apache (cPanel)
+# Meelano Trading Intelligence — Apache security configuration
+# ═════════════════════════════════════════════════════════════════════
+
+# ── کاراکترست و صفحهٔ پیش‌فرض ─────────────────────────────────────────
+AddDefaultCharset UTF-8
+DirectoryIndex index.php
+
+# ── مسدودسازی دسترسی مستقیم وب به مسیرهای حساس ──────────────────────
+# تنظیمات رمزنگاری‌شده و کلید AES — هرگز از وب قابل خواندن نباشد
+RedirectMatch 404 ^/config/
+# هستهٔ PHP — فقط از طریق include معنا دارد
+RedirectMatch 404 ^/includes/
+# داده‌های زمان اجرا (لاگ، کش)
+RedirectMatch 404 ^/storage/
+# ابزارها و تست‌ها نباید روی پروداکشن قابل اجرا باشند
+RedirectMatch 404 ^/tools/
+RedirectMatch 404 ^/tests/
+
+<FilesMatch "^\.(env|app_key|htaccess)">
+    Require all denied
+</FilesMatch>
+
+# ── سرصفحه‌های امن ────────────────────────────────────────────────────
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    Header always unset X-Powered-By
+</IfModule>
+
+# ── فشرده‌سازی برای JS/CSS بزرگ ───────────────────────────────────────
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
+</IfModule>
+
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 7 days"
+    ExpiresByType application/javascript "access plus 7 days"
+    ExpiresByType image/png "access plus 30 days"
+</IfModule>

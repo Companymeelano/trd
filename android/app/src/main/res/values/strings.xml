@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">میلانو ترید</string>
+    <string name="app_url" translatable="false">https://ainetmee.ir/trader/</string>
+    <string name="loading">در حال اتصال به موتور سیگنال…</string>
+    <string name="err_title">اتصال برقرار نشد</string>
+    <string name="err_body">دسترسی به موتور سیگنال میلانو ممکن نیست. اینترنت گوشی را بررسی کنید یا مطمئن شوید پنل روی هاست فعال است.</string>
+    <string name="err_retry">تلاش دوباره</string>
+    <string name="download_started">دانلود آغاز شد — در پوشهٔ Downloads/MeelanoTrader</string>
+    <string name="unsafe_blocked">این صفحه ناامن تشخیص داده شد و مسدود شد.</string>
+</resources>
