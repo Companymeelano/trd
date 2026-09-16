@@ -1,0 +1,20 @@
+name: Runner Probe
+
+on:
+  push:
+    branches:
+      - "arena/01a0a94d-trd"
+    paths:
+      - ".github/workflows/probe.yml"
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Echo
+        run: |
+          echo "probe ok"
+          java -version 2>&1 || true
+          echo "ANDROID_HOME=$ANDROID_HOME"
