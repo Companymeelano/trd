@@ -596,3 +596,50 @@ details.collapse summary { cursor: pointer; font-size: 12.5px; font-weight: 700;
     .sym-bar { grid-template-columns: 52px 1fr 78px; }
     .sym-bar .help { display: none; }
 }
+
+/* ═══ نسخهٔ ۵٫۳ — پنل اطلاع‌رسانی چندکاناله ═══════════════════════════ */
+
+.nt-card { position: relative; overflow: hidden; }
+.nt-card::before {
+    content: ''; position: absolute; inset-inline: 0; top: 0; height: 3px;
+    background: linear-gradient(90deg, transparent, var(--gold, #f5b731), transparent);
+    opacity: 0;
+}
+.nt-card:hover::before { opacity: .9; }
+.nt-dot {
+    display: inline-block; font-size: 18px; line-height: 1; margin-inline-start: 6px; vertical-align: middle;
+    filter: drop-shadow(0 0 6px currentColor);
+}
+.nt-dot--ok { color: #34d399; animation: ntPulse 2.2s ease-in-out infinite; }
+.nt-dot--warn { color: #fbbf24; animation: ntPulse 1.4s ease-in-out infinite; }
+.nt-dot--off { color: #64748b; }
+@keyframes ntPulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+
+.nt-secret-badge {
+    display: inline-block; font-size: 10px; color: #a7f3d0; background: rgba(16, 60, 45, .5);
+    border: 1px solid rgba(52, 211, 153, .35); border-radius: 999px; padding: 1px 8px; margin-inline-start: 6px;
+}
+
+.nt-event {
+    display: inline-flex; align-items: center; gap: 7px; cursor: pointer; user-select: none;
+    font-size: 11.5px; color: var(--text-dim); padding: 5px 11px; border-radius: 999px;
+    border: 1px solid var(--line-soft); background: rgba(255, 255, 255, .03);
+    transition: all .18s ease;
+}
+.nt-event:hover { border-color: rgba(245, 183, 49, .45); color: var(--text); }
+.nt-event input { accent-color: #f5b731; width: 14px; height: 14px; cursor: pointer; }
+.nt-event:has(input:checked) {
+    color: #fde68a; border-color: rgba(245, 183, 49, .5); background: rgba(70, 52, 10, .35);
+    box-shadow: 0 0 0 1px rgba(245, 183, 49, .12), 0 4px 14px rgba(245, 183, 49, .06);
+}
+
+.nt-preview {
+    direction: rtl; text-align: right; white-space: pre-wrap; font-family: inherit; line-height: 1.9;
+    background: rgba(3, 6, 15, .55); border: 1px dashed var(--line); border-radius: var(--radius-md);
+    padding: 18px 20px; font-size: 13.5px; color: var(--text); max-height: 380px; overflow-y: auto;
+    box-shadow: inset 0 2px 12px rgba(0, 0, 0, .25);
+}
+.nt-ok, .nt-bad { font-size: 12.5px; display: flex; align-items: center; gap: 8px; }
+.nt-ok { color: #a7f3d0; }
+.nt-bad { color: #fecdd3; }
+.nt-ok i, .nt-bad i { font-size: 15px; }

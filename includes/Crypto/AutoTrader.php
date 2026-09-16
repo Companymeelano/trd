@@ -31,15 +31,18 @@ final class AutoTrader
     private $cfg;
     /** @var Connector|null فقط برای حالت live */
     private $live;
+    /** @var Notifier|null سامانهٔ اطلاع‌رسانی (اختیاری — خطای آن هرگز معامله را نمی‌شکند) */
+    private $notifier;
 
     private const TIERS = ['C' => 1, 'B' => 2, 'A' => 3, 'A+' => 4];
 
-    public function __construct(Db $db, ?MarketData $market = null, ?Connector $live = null, ?array $cfg = null)
+    public function __construct(Db $db, ?MarketData $market = null, ?Connector $live = null, ?array $cfg = null, ?Notifier $notifier = null)
     {
         $this->db = $db;
         $this->market = $market ?: new MarketData(null, (array)Config::get('market', []));
         $this->live = $live;
         $this->cfg = $cfg ?? array_merge((array)Config::get('trading', []), (array)Config::get('market', []));
+        $this->notifier = $notifier;
     }
 
     /* ═══ حساب ═══════════════════════════════════════════════════════════ */
@@ -200,6 +203,9 @@ final class AutoTrader
                 $r = $this->openPosition($sig, 'auto');
                 if (!empty($r['ok'])) {
                     $out['opened'][] = $r['position'];
+                    if (!empty($r['dry_run'])) {
+                        $out['dry_run'] = true; // حداقل یک ورود فقط شبیه‌سازی شد
+                    }
                 } elseif (!empty($r['skipped'])) {
                     $out['skipped'][] = $r['reason'];
                 } elseif (!empty($r['error'])) {
@@ -207,7 +213,6 @@ final class AutoTrader
                 }
             }
         }
-        $out['dry_run'] = !empty($out['opened']['dry_run'] ?? false);
         return $out;
     }
 
@@ -333,7 +338,10 @@ final class AutoTrader
             'updated_at' => $now,
         ], 'id = 1');
 
-        return ['ok' => true, 'position' => $this->positionRow($posId)];
+        $posRow = $this->positionRow($posId);
+        $this->notifyOpened($posRow ?? []);
+
+        return ['ok' => true, 'position' => $posRow];
     }
 
     /* ═══ پایش خروج (استاپ/TP لایه‌نردبانی روی کندل بسته) ═════════════════ */
@@ -752,9 +760,39 @@ final class AutoTrader
             'updated_at' => $now,
         ], 'id = 1');
 
-        return ['ok' => true, 'closed_trade' => $this->db->selectOne(
+        $tradeRow = $this->db->selectOne(
             'SELECT * FROM ' . $this->db->table('trade_trades') . ' WHERE id = :i', ['i' => $tradeId]
-        ), 'pnl_seg' => round($pnlSeg, 2)];
+        );
+        $this->notifyClosed($tradeRow ?? []);
+
+        return ['ok' => true, 'closed_trade' => $tradeRow, 'pnl_seg' => round($pnlSeg, 2)];
+    }
+
+    /* ═══ اطلاع‌رسانی رویدادها (نسخهٔ ۵٫۳) ══════════════════════════════ */
+
+    /** رویداد «پوزیشن باز شد» — شکست اطلاع‌رسانی هرگز معامله را نمی‌شکند. */
+    private function notifyOpened(array $position): void
+    {
+        if ($this->notifier === null) {
+            return;
+        }
+        try {
+            $this->notifier->notifyOpen($position);
+        } catch (Throwable $e) { /* بی‌اثر روی معامله */ }
+    }
+
+    /** رویداد «پوزیشن بسته شد» + گزارش کیف اختیاری پس از بستن. */
+    private function notifyClosed(array $trade): void
+    {
+        if ($this->notifier === null) {
+            return;
+        }
+        try {
+            $this->notifier->notifyClose($trade);
+            if ($this->notifier->reportOnClose()) {
+                $this->notifier->notifyWallet($this->state(false));
+            }
+        } catch (Throwable $e) { /* بی‌اثر روی معامله */ }
     }
 
     /** اجرای سفارش زنده (فقط با کلید و مجوز). */

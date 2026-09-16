@@ -310,6 +310,35 @@ final class Schema
                 ],
             ],
 
+            'notify_log' => [
+                'label' => 'تاریخچهٔ ارسال اطلاع‌رسانی (نسخهٔ ۵٫۳)',
+                'mysql' => "CREATE TABLE IF NOT EXISTS %t% (
+                    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                    channel VARCHAR(24) NOT NULL,
+                    event VARCHAR(24) NOT NULL,
+                    ok TINYINT NOT NULL DEFAULT 0,
+                    error VARCHAR(500) NULL,
+                    preview VARCHAR(300) NULL,
+                    created_ts INT UNSIGNED NOT NULL,
+                    created_at DATETIME NOT NULL,
+                    PRIMARY KEY (id),
+                    KEY idx_notify_channel (channel, event)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+                'sqlite' => "CREATE TABLE IF NOT EXISTS %t% (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    channel TEXT NOT NULL,
+                    event TEXT NOT NULL,
+                    ok INTEGER NOT NULL DEFAULT 0,
+                    error TEXT,
+                    preview TEXT,
+                    created_ts INTEGER NOT NULL,
+                    created_at TEXT NOT NULL
+                )",
+                'sqlite_indexes' => [
+                    'CREATE INDEX IF NOT EXISTS %i% ON %t% (channel, event)',
+                ],
+            ],
+
             'ai_tasks' => [
                 'label' => 'تعریف وظایف هوش مصنوعی',
                 'mysql' => "CREATE TABLE IF NOT EXISTS %t% (

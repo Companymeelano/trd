@@ -730,7 +730,169 @@ check('سفارش بازار موفق + میانگین قیمت', $ord['ok'] && 
 $ordCall = $exMock3->calls[count($exMock3->calls) - 1];
 check('quoteOrderQty در سفارش ارسال شد', strpos($ordCall['url'], 'quoteOrderQty=100.00') !== false, $ordCall['url']);
 
+
+/* ═══ ۲۲) اطلاع‌رسانی چندکاناله (نسخهٔ ۵٫۳) ═══ */
+section('Notifier / اطلاع‌رسانی');
+
+// قالب پیام‌ها
+$sigSample = \Meelano\Crypto\Notifier::samplePayload('signal');
+$ntMock = new MockTransport();
+$ntMock->on('api.telegram.org', ['status' => 200, 'body' => json_encode(['ok' => true, 'result' => ['message_id' => 42]])]);
+$ntCfgOn = [
+    'enabled' => true, 'min_tier' => 'B', 'throttle_sec' => 45, 'report_on_close' => false,
+    'channels' => [
+        'telegram' => ['enabled' => true, 'bot_token' => '111:AAA-TEST', 'chat_id' => '-100123', 'api_base' => 'https://api.telegram.org',
+            'events' => ['signal' => true, 'trade_opened' => true, 'trade_closed' => true, 'wallet_report' => true]],
+        'bale' => ['enabled' => true, 'bot_token' => 'bale-token-1234567890', 'chat_id' => 'balechan', 'api_base' => 'https://tapi.bale.ai',
+            'events' => ['signal' => true, 'trade_opened' => false, 'trade_closed' => true, 'wallet_report' => false]],
+        'rubika' => ['enabled' => true, 'bot_token' => 'rubika-token-1234567890', 'chat_id' => 'rubchan', 'api_base' => 'https://botapi.rubika.ir',
+            'events' => ['signal' => true, 'trade_opened' => true, 'trade_closed' => true, 'wallet_report' => true]],
+        'whatsapp' => ['enabled' => true, 'phone_number_id' => '10987', 'access_token' => 'EAAG-WA-TOKEN', 'to' => '989120000000',
+            'api_version' => 'v21.0', 'api_base' => 'https://graph.facebook.com',
+            'events' => ['signal' => false, 'trade_opened' => true, 'trade_closed' => true, 'wallet_report' => true]],
+        'sms' => ['enabled' => true, 'api_key' => 'kavenegar-api-key-1234567890', 'receptor' => '09120000000', 'sender' => '',
+            'api_base' => 'https://api.kavenegar.com',
+            'events' => ['signal' => false, 'trade_opened' => false, 'trade_closed' => true, 'wallet_report' => false]],
+    ],
+];
+$nt = new \Meelano\Crypto\Notifier($db, $ntMock, $ntCfgOn);
+
+$renderedSignal = $nt->render('signal', $sigSample, false);
+check('قالب سیگنال: نماد/ورود/استاپ/هدف', strpos($renderedSignal, 'BTCUSDT') !== false
+    && strpos($renderedSignal, '64,250') !== false && strpos($renderedSignal, '62,900') !== false
+    && strpos($renderedSignal, '65,800') !== false, $renderedSignal);
+check('قالب سیگنال: درجه و RR', strpos($renderedSignal, 'A+') !== false && strpos($renderedSignal, '1:2.') !== false);
+$renderedClose = $nt->render('trade_closed', \Meelano\Crypto\Notifier::samplePayload('trade_closed'), false);
+check('قالب بستن: PnL مبلغ/درصد/R/دلیل', strpos($renderedClose, '+12.40') !== false && strpos($renderedClose, '+4.98%') !== false
+    && strpos($renderedClose, 'R: 1.90') !== false && strpos($renderedClose, 'هدف دوم') !== false, $renderedClose);
+$renderedWallet = $nt->render('wallet_report', \Meelano\Crypto\Notifier::samplePayload('wallet_report'), false);
+check('قالب کیف: ارزش/سود کل/وین‌ریت', strpos($renderedWallet, '2,562.10') !== false && strpos($renderedWallet, '+562.10') !== false
+    && strpos($renderedWallet, '61.8%') !== false, $renderedWallet);
+$renderedSms = $nt->render('trade_closed', \Meelano\Crypto\Notifier::samplePayload('trade_closed'), true);
+check('نسخهٔ فشردهٔ پیامک کوتاه است', strlen($renderedSms) < 120 && strpos($renderedSms, '+12.4') !== false, $renderedSms);
+
+// dispatch: تلگرام/بله/روبیکا/واتساپ/پیامک — هر کانال فقط رویداد مشترک
+$ntMock->on('tapi.bale.ai', ['status' => 200, 'body' => '{}']);
+$ntMock->on('botapi.rubika.ir', ['status' => 200, 'body' => '{"status":"OK","data":{}}']);
+$ntMock->on('graph.facebook.com', ['status' => 200, 'body' => json_encode(['messages' => [['id' => 'wamid.1']]])]);
+$ntMock->on('api.kavenegar.com', ['status' => 200, 'body' => json_encode(['return' => ['status' => 200, 'message' => 'تایید شد']])]);
+$dp = $nt->dispatch('signal', $sigSample);
+check('ارسال سیگنال: فقط کانال‌های مشترک (تلگرام/بله/روبیکا)', in_array('telegram', $dp['sent'], true)
+    && in_array('bale', $dp['sent'], true) && in_array('rubika', $dp['sent'], true)
+    && !in_array('whatsapp', $dp['sent'], true) && !in_array('sms', $dp['sent'], true),
+    json_encode($dp, JSON_UNESCAPED_UNICODE));
+$tgCall = null;
+foreach ($ntMock->calls as $c) { if (strpos($c['url'], 'api.telegram.org/bot111%3AAAA-TEST/sendMessage') !== false) { $tgCall = $c; } }
+check('تلگرام: URL و پارامترها', $tgCall !== null && strpos($tgCall['options']['body'], 'chat_id=-100123') !== false
+    && strpos($tgCall['options']['body'], 'BTCUSDT') !== false, $tgCall ? $tgCall['url'] : 'ندارد');
+$baleCall = null;
+foreach ($ntMock->calls as $c) { if (strpos($c['url'], 'tapi.bale.ai/bot') !== false) { $baleCall = $c; } }
+check('بله: نشانی و بدنه', $baleCall !== null && strpos($baleCall['options']['body'], 'chat_id=balechan') !== false);
+$rbCall = null;
+foreach ($ntMock->calls as $c) { if (strpos($c['url'], 'botapi.rubika.ir/v1/') !== false) { $rbCall = $c; } }
+check('روبیکا: JSON chat_id/text', $rbCall !== null && strpos($rbCall['options']['body'], '"chat_id":"rubchan"') !== false);
+
+$dp2 = $nt->dispatch('trade_closed', \Meelano\Crypto\Notifier::samplePayload('trade_closed'));
+check('بستن: هر ۵ کانال مشترک ارسال شدند', count($dp2['sent']) === 5, json_encode($dp2, JSON_UNESCAPED_UNICODE));
+$waCall = null;
+foreach ($ntMock->calls as $c) { if (strpos($c['url'], 'graph.facebook.com/v21.0/10987/messages') !== false) { $waCall = $c; } }
+check('واتساپ: Bearer + messaging_product + گیرنده', $waCall !== null
+    && ($waCall['options']['headers']['Authorization'] ?? '') === 'Bearer EAAG-WA-TOKEN'
+    && strpos($waCall['options']['body'], '"messaging_product":"whatsapp"') !== false
+    && strpos($waCall['options']['body'], '"to":"989120000000"') !== false);
+$smsCall = null;
+foreach ($ntMock->calls as $c) { if (strpos($c['url'], 'api.kavenegar.com/v1/kavenegar-api-key-1234567890/sms/send.json') !== false) { $smsCall = $c; } }
+check('پیامک: کلید در مسیر + receptor + متن فشرده', $smsCall !== null
+    && strpos($smsCall['options']['body'], 'receptor=09120000000') !== false
+    && strpos($smsCall['options']['body'], 'BTCUSDT') !== false && strlen($smsCall['options']['body']) < 350);
+
+// فیلتر درجهٔ سیگنال + دسته‌ای
+$lowSig = $sigSample; $lowSig['tier'] = 'C'; $lowSig['symbol'] = 'ETHUSDT';
+$dpLow = $nt->notifySignals([$lowSig]);
+check('سیگنال زیر حداقل درجه ارسال نشد', empty($dpLow['sent']), json_encode($dpLow, JSON_UNESCAPED_UNICODE));
+$dpBatch = $nt->notifySignals([$sigSample, $lowSig]);
+check('ارسال دسته‌ای فقط یک dispatch با شمارش', strpos($nt->render('signal', ['batch' => [$sigSample, $lowSig]], false), '2 سیگنال') !== false);
+
+// throttle: ارسال فوری دوبارهٔ همان رویداد به همان کانال حذف می‌شود
+$dpAgain = $nt->dispatch('trade_closed', \Meelano\Crypto\Notifier::samplePayload('trade_closed'));
+check('throttle جلوی ارسال مجدد فوری را گرفت', empty($dpAgain['sent']) && count($dpAgain['skipped']) === 5,
+    json_encode($dpAgain, JSON_UNESCAPED_UNICODE));
+
+// جداسازی خطا: یک کانال ۵۰۰ بدهد، بقیه ارسال می‌شوند
+$ntMock->on('api.telegram.org', ['status' => 500, 'body' => '{"ok":false,"description":"rate limited"}']);
+$ntCfgOn2 = $ntCfgOn;
+$ntCfgOn2['throttle_sec'] = 0; // throttle خاموش تا فقط خطا تست شود
+$nt2 = new \Meelano\Crypto\Notifier($db, $ntMock, $ntCfgOn2);
+$dpErr = $nt2->dispatch('signal', $sigSample);
+check('خطای یک کانال بقیه را نمی‌شکند', in_array('bale', $dpErr['sent'], true) && in_array('rubika', $dpErr['sent'], true)
+    && !in_array('telegram', $dpErr['sent'], true));
+$logRows = $db->select('SELECT * FROM ' . $db->table('notify_log') . ' WHERE channel = :c ORDER BY id DESC LIMIT 1', ['c' => 'telegram']);
+check('خطا در notify_log ثبت شد', !empty($logRows) && (int)$logRows[0]['ok'] === 0 && strpos((string)$logRows[0]['error'], 'rate limited') !== false);
+
+// کلید اصلی خاموش → هیچ ارسالی
+$ntCfgOff = $ntCfgOn; $ntCfgOff['enabled'] = false; $ntCfgOff['throttle_sec'] = 0;
+$nt3 = new \Meelano\Crypto\Notifier($db, $ntMock, $ntCfgOff);
+$dpOff = $nt3->dispatch('signal', $sigSample);
+check('کلید اصلی خاموش = بدون ارسال', empty($dpOff['sent']) && strpos(json_encode($dpOff['skipped'], JSON_UNESCAPED_UNICODE), 'خاموش') !== false);
+
+// تست سلامت: تلگرام getMe؛ بدون پیکربندی → configured=false
+$tgMockFresh = new MockTransport();
+$tgMockFresh->on('api.telegram.org', ['status' => 200, 'body' => json_encode(['ok' => true, 'result' => ['id' => 42, 'username' => 'meelano_bot']])]);
+$tgCheck = (new \Meelano\Crypto\Notify\Telegram($tgMockFresh, ['bot_token' => '222:BBB', 'chat_id' => '1']))->check();
+$tgCheckCall = null;
+foreach ($tgMockFresh->calls as $c) { if (strpos($c['url'], 'getMe') !== false) { $tgCheckCall = $c; } }
+check('تست سلامت تلگرام getMe زده شد', $tgCheck['ok'] && $tgCheckCall !== null);
+$tgEmpty = (new \Meelano\Crypto\Notify\Telegram($ntMock, []))->check();
+check('کانال بدون پیکربندی: configured=false', !$tgEmpty['ok'] && empty($tgEmpty['configured']));
+$smsEmpty = (new \Meelano\Crypto\Notify\Sms($ntMock, ['api_key' => '']))->send('x');
+check('ارسال بدون کلید: خطای کنترل‌شده', !$smsEmpty['ok'] && strpos($smsEmpty['error'], 'تنظیم نشده') !== false);
+
+// ذخیره: راز خالی = حفظ قبلی + اعتبارسنجی
+$ntSave = new \Meelano\Crypto\Notifier($db, $ntMock, $ntCfgOn);
+$sv = $ntSave->save([
+    'enabled' => true, 'min_tier' => 'A', 'throttle_sec' => 30, 'report_on_close' => true,
+    'channels' => ['telegram' => ['enabled' => true, 'bot_token' => '', 'chat_id' => '-100999',
+        'events' => ['signal' => false]]],
+]);
+check('ذخیره پیکربندی موفق', !empty($sv['ok']));
+$savedTg = (array)Config::get('notify.channels.telegram', []);
+check('راز خالی = حفظ توکن قبلی', (string)$savedTg['bot_token'] === '111:AAA-TEST');
+check('مقادیر جدید ذخیره شدند', (string)$savedTg['chat_id'] === '-100999' && (bool)$savedTg['events']['signal'] === false
+    && (bool)$savedTg['events']['trade_closed'] === true);
+$badBase = $ntSave->save(['channels' => ['telegram' => ['api_base' => 'ftp://bad']]]);
+check('نشانی API نامعتبر رد شد', empty($badBase['ok']));
+
+// status: هیچ رازی افشا نمی‌شود
+$st = $ntSave->status();
+$tgSt = $st['channels']['telegram'];
+check('status: توکن ماسک و مقدار خالی', $tgSt['fields']['bot_token']['value'] === ''
+    && strpos((string)$tgSt['fields']['bot_token']['masked'], '111') === 0
+    && strpos((string)$tgSt['fields']['bot_token']['masked'], 'AAA-TEST') === false, json_encode($tgSt['fields']['bot_token']));
+check('status: آخرین ارسال + لاگ', isset($tgSt['last']['event']) && count($st['log']) > 0);
+
+// AutoTrader + Notifier: باز/بستن پوزیشن رویداد می‌فرستد
+$ntCfgTrade = $ntCfgOn;
+$ntCfgTrade['throttle_sec'] = 0;
+$ntTrade = new \Meelano\Crypto\Notifier($db, $ntMock, $ntCfgTrade);
+$atN = new AutoTrader($db, new MarketData($atMock), null, $atCfg, $ntTrade);
+$atN->reset(1000.0);
+$callsBefore = count($ntMock->calls);
+$openN = $atN->openPosition($fakeSignal, 'auto');
+$openedCalls = count($ntMock->calls) - $callsBefore;
+check('بازشدن پوزیشن → رویداد trade_opened به کانال‌های مشترک', !empty($openN['ok']) && $openedCalls >= 2,
+    'فراخوانی‌ها: ' . $openedCalls);
+$posRowN = $db->selectOne('SELECT * FROM ' . $db->table('trade_positions') . ' LIMIT 1');
+$closeN = $atN->closePosition((int)$posRowN['id'], 'tp2', (float)$posRowN['take_profit_2']);
+$callsAfterClose = count($ntMock->calls);
+check('بستن پوزیشن → رویداد trade_closed', !empty($closeN['ok']) && $callsAfterClose > $openedCalls + $callsBefore);
+$lastTg = null;
+foreach ($ntMock->calls as $c) {
+    if (strpos($c['url'], 'sendMessage') !== false && strpos(urldecode($c['options']['body'] ?? ''), 'بسته شد') !== false) { $lastTg = $c; }
+}
+check('پیام بستن شامل PnL است', $lastTg !== null && strpos(urldecode($lastTg['options']['body']), 'USDT') !== false);
+
 echo "\n════════════════════════════════════\nموفق: {$passed}   ناموفق: {$failed}\n";
+
 if ($failed > 0) { echo "  - " . implode("\n  - ", $failures) . "\n"; exit(1); }
 echo "همه تست‌ها گذشتند ✓\n";
 exit(0);

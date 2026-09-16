@@ -1,7 +1,7 @@
 # میلانو تریدینگ اینتلیجنس — Meelano Trading Intelligence v5
 
 > طراحی و توسعه: **Milad Yaghoobi** · **Meelano Studio Design**
-> بات هوشمند ترید و بررسی کریپتو — نسخهٔ ۵٫۲ (APEX TRADER · AUTO)
+> بات هوشمند ترید و بررسی کریپتو — نسخهٔ ۵٫۳ (APEX TRADER · AUTO+ALERT)
 
 سامانهٔ تحلیل و سیگنال کریپتو با معماری «قیف تصمیم نهادی»:
 دادهٔ زندهٔ Binance/CoinGecko → تشخیص رژیم بازار → ۱۵ فیلتر هم‌گرایی وزن‌دار →
@@ -12,6 +12,11 @@
 بر اساس فیلترهای درجه/اعتماد، پایش خروج نردبانی (TP1/2/3 + استاپ + سربه‌سر)، سه حالت
 خریدوفروش/فقط‌خرید/فقط‌فروش، کارنامهٔ تفکیک‌شدهٔ هر معامله با سود/ضرر دقیق (٪ و مبلغ، R واقعی)
 و اتصال آماده به Binance Spot (تست‌نت + اصلی) برای اجرای واقعی — همه در پنل `trade.php`.
+
+جدید در **۵٫۳ — اطلاع‌رسانی چندکاناله**: ارسال خودکار سیگنال‌ها، رویدادهای باز/بستن پوزیشن و
+گزارش کیف (سود/زیان کل و باز) به **تلگرام، بله، روبیکا، واتساپ و پیامک** — با تنظیم کامل هر
+کانال، فیلتر درجه، ضداسپم (throttle)، تست سلامت اتصال، ارسال پیام تست، پیش‌نمایش پیام و
+تاریخچهٔ ارسال — پنل `notify.php`.
 
 📄 برای معماری کامل، فرمول‌ها و سند مهندسی: **[ANALYSIS.md](ANALYSIS.md)**
 
@@ -40,11 +45,12 @@
 | 🚪 **پایش خروج نردبانی** | بستن پله‌ای در TP1 (۵۰٪ + انتقال استاپ به سربه‌سر)، TP2، TP3؛ اولویت استاپ؛ بستن با سیگنال مخالف |
 | 📈 **کارنامهٔ تفکیک‌شده** | سود/ضرر هر معامله به درصد و مبلغ + R واقعی + منحنی سرمایه + آمار کل (وین‌ریت، سود ناخالص/ناخالص، بهترین/بدترین) |
 | 🔌 **اتصال Binance Spot** | HMAC-SHA256 امضاشده؛ کلیدها رمزنگاری‌شده ذخیره می‌شوند؛ تست‌نت رسمی پشتیبانی می‌شود؛ معاملهٔ واقعی دو-مرحله‌ای قفل می‌شود |
+| 🔔 **اطلاع‌رسانی چندکاناله** | تلگرام/بله/روبیکا/واتساپ/پیامک: سیگنال، باز/بستن پوزیشن با PnL دقیق، گزارش کیف؛ تست سلامت + پیام تست + پیش‌نمایش + تاریخچهٔ ارسال؛ توکن‌ها رمزنگاری‌شده و همیشه ماسک |
 
 ## اجرا و تست
 
 ```bash
-# تست واحد + یکپارچه (۱۵۸ تست روی کد واقعی)
+# تست واحد + یکپارچه (۱۸۸ تست روی کد واقعی)
 php tests/run.php
 ```
 
@@ -63,7 +69,9 @@ php tests/run.php
 | `trade.php` | پنل معامله‌گر خودکار: کیف تست، تنظیمات اجرا، پوزیشن‌های زنده، کارنامه، نمودارها، صرافی |
 | `api/paper.php` | API کیف کاغذی: state/reset/config/open/close/update |
 | `api/exchange.php` | مدیریت اتصال صرافی: status/test/save_keys/enable_live/disable_live |
-| `includes/Crypto/` | موتور: Indicators، Context، Regime، Filters (۲۵)، MultiTimeframe، RiskManager، SignalEngine، Backtest، AiValidator، MarketData، SignalTracker، Robustness، **AutoTrader، Connector، BinanceSpot** |
+| `notify.php` | پنل اطلاع‌رسانی: تنظیم ۵ کانال، تست سلامت/ارسال، پیش‌نمایش، تاریخچه |
+| `api/notify.php` | API اطلاع‌رسانی: status/save/check/test/preview/report |
+| `includes/Crypto/` | موتور: Indicators، Context، Regime، Filters (۲۵)، MultiTimeframe، RiskManager، SignalEngine، Backtest، AiValidator، MarketData، SignalTracker، Robustness، AutoTrader، Connector، BinanceSpot، **Notifier + درایورهای Notify/** |
 | `includes/Ai/` | کلاینت چند-پروتکلی (OpenAI/Gemini/Cloudflare)، مسیریاب هوشمند، سلامت |
 | `android/` | اپ اندروید WebView امن (دانلود، Safe Browsing، اسپلش) |
 

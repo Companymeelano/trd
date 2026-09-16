@@ -160,6 +160,35 @@ final class Config
                 'live_enabled' => false,        // معاملهٔ واقعی فقط با تأیید صریح
                 'receive_window' => 5000,
             ],
+            'notify' => [
+                'enabled' => false,             // کلید اصلی سامانهٔ اطلاع‌رسانی (نسخهٔ ۵٫۳)
+                'min_tier' => 'B',              // حداقل درجهٔ سیگنال برای اطلاع‌رسانی
+                'throttle_sec' => 45,           // فاصلهٔ حداقلی ارسال به‌ازای (کانال × رویداد)
+                'report_on_close' => false,     // ارسال گزارش کیف پس از هر بستن پوزیشن
+                'channels' => [
+                    'telegram' => [
+                        'enabled' => false, 'bot_token' => '', 'chat_id' => '', 'api_base' => 'https://api.telegram.org',
+                        'events' => ['signal' => true, 'trade_opened' => true, 'trade_closed' => true, 'wallet_report' => true],
+                    ],
+                    'bale' => [
+                        'enabled' => false, 'bot_token' => '', 'chat_id' => '', 'api_base' => 'https://tapi.bale.ai',
+                        'events' => ['signal' => true, 'trade_opened' => true, 'trade_closed' => true, 'wallet_report' => true],
+                    ],
+                    'rubika' => [
+                        'enabled' => false, 'bot_token' => '', 'chat_id' => '', 'api_base' => 'https://botapi.rubika.ir',
+                        'events' => ['signal' => true, 'trade_opened' => true, 'trade_closed' => true, 'wallet_report' => true],
+                    ],
+                    'whatsapp' => [
+                        'enabled' => false, 'phone_number_id' => '', 'access_token' => '', 'to' => '',
+                        'api_version' => 'v21.0', 'api_base' => 'https://graph.facebook.com',
+                        'events' => ['signal' => true, 'trade_opened' => true, 'trade_closed' => true, 'wallet_report' => true],
+                    ],
+                    'sms' => [
+                        'enabled' => false, 'api_key' => '', 'receptor' => '', 'sender' => '', 'api_base' => 'https://api.kavenegar.com',
+                        'events' => ['signal' => false, 'trade_opened' => false, 'trade_closed' => true, 'wallet_report' => false],
+                    ],
+                ],
+            ],
         ];
     }
 
@@ -260,6 +289,21 @@ final class Config
                 $data['exchange'][$secretField . '_masked'] = m_mask_secret((string)$data['exchange'][$secretField]);
                 $data['exchange'][$secretField . '_set'] = true;
                 $data['exchange'][$secretField] = '';
+            }
+        }
+        // رازهای کانال‌های اطلاع‌رسانی (نسخهٔ ۵٫۳)
+        if (is_array($data['notify']['channels'] ?? null)) {
+            foreach ($data['notify']['channels'] as $cid => $ch) {
+                if (!is_array($ch)) {
+                    continue;
+                }
+                foreach (['bot_token', 'access_token', 'api_key'] as $sf) {
+                    if (!empty($ch[$sf])) {
+                        $data['notify']['channels'][$cid][$sf . '_masked'] = m_mask_secret((string)$ch[$sf]);
+                        $data['notify']['channels'][$cid][$sf . '_set'] = true;
+                        $data['notify']['channels'][$cid][$sf] = '';
+                    }
+                }
             }
         }
         $data['app']['admin_hash'] = $data['app']['admin_hash'] !== '' ? '***' : '';

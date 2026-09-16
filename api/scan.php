@@ -58,17 +58,27 @@ if ($symbol !== '') {
 
 $result = $engine->scanMarket();
 
-// ── قلاب معامله‌گر خودکار: اجرای سیگنال‌ها روی کیف تست/زنده (نسخهٔ ۵٫۲) ──
+// ── قلاب معامله‌گر خودکار + اطلاع‌رسانی سیگنال‌ها (نسخهٔ ۵٫۲ / ۵٫۳) ──
 $auto = null;
+$notify = null;
 try {
+    $notifier = null;
+    if ($db !== null && $db->tableExists('notify_log') && (bool)Config::get('notify.enabled', false)) {
+        $notifier = new \Meelano\Crypto\Notifier($db);
+    }
     if ($db !== null && $db->tableExists('trade_accounts')
         && (bool)Config::get('trading.auto_trade_enabled', false)) {
         $auto = (new \Meelano\Crypto\AutoTrader(
             $db,
             new MarketData(null, $marketCfg),
             null,
-            array_merge((array)Config::get('trading', []), (array)Config::get('market', []))
+            array_merge((array)Config::get('trading', []), (array)Config::get('market', [])),
+            $notifier
         ))->afterScan($result['signals']);
+    }
+    if ($notifier !== null) {
+        // رویدادهای معامله مستقیماً از AutoTrader می‌آیند؛ اینجا فقط سیگنال‌ها
+        $notify = $notifier->notifySignals($result['signals']);
     }
 } catch (Throwable $e) {
     $auto = ['ok' => false, 'errors' => ['auto: ' . $e->getMessage()]];
@@ -87,6 +97,7 @@ m_json([
     'portfolio' => $result['portfolio'] ?? null,
     'fear_greed' => $result['fear_greed'] ?? null,
     'auto_trade' => $auto,
+    'notify' => $notify,
     'duration_ms' => $result['duration_ms'],
     'errors' => $result['errors'],
 ]);
