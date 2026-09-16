@@ -77,6 +77,26 @@ final class SignalEngine
         // رژیم بیت‌کوین — لنگرگاه جهانی بازار کریپتو
         $btc = (bool)($this->cfg['btc_filter'] ?? true) ? $this->btcRegime() : null;
 
+        // ── داده‌های کلان: یک درخواست برای کل اسکن (نسخهٔ ۵٫۱) ──────
+        $extra = [];
+        try {
+            if (!empty($this->cfg['enable_funding'])) {
+                $extra['funding'] = $this->market->fundingRates();
+            }
+        } catch (Throwable $e) { /* بدون فاندینگ هم قیف کار می‌کند */ }
+        try {
+            if (!empty($this->cfg['enable_fear_greed'])) {
+                $extra['fg'] = $this->market->fearGreed();
+            }
+        } catch (Throwable $e) { /* بدون سنتیمنت هم قیف کار می‌کند */ }
+        try {
+            // کلوزهای BTC روی تایم‌فریم اصلی — برای قدرت نسبی آلت‌کوین‌ها
+            $btcRes = $this->market->candles('BTCUSDT', (string)($this->cfg['timeframe'] ?? '1h'), 220);
+            if (!empty($btcRes['ok'])) {
+                $extra['btc_closes'] = array_column($btcRes['candles'], 'close');
+            }
+        } catch (Throwable $e) { /* RS غیرفعال می‌ماند */ }
+
         $signals = [];
         $suppressed = 0;
         $errors = [];
@@ -89,7 +109,7 @@ final class SignalEngine
                 continue;
             }
             try {
-                $signal = $this->analyzeSymbol($t['symbol'], $t, $btc, $breadth);
+                $signal = $this->analyzeSymbol($t['symbol'], $t, $btc, $breadth, $extra);
             } catch (Throwable $e) {
                 $errors[] = $t['symbol'] . ': ' . $e->getMessage();
                 Logger::write('crypto', 'خطای تحلیل ' . $t['symbol'] . ': ' . $e->getMessage(), 'warning');
@@ -104,8 +124,8 @@ final class SignalEngine
                 if (!empty($signal['ai']['ok'])) {
                     $aiUsed = true;
                 }
-                if (count($signals) >= $maxSignals) {
-                    break;
+                if (count($signals) >= $maxSignals * 3) {
+                    break; // سه برابر جمع می‌کنیم؛ دروازهٔ پرتفوی بهترین‌ها را نگه می‌دارد
                 }
             }
         }
@@ -113,6 +133,11 @@ final class SignalEngine
         usort($signals, static function ($a, $b) {
             return $b['combined_score'] <=> $a['combined_score'];
         });
+
+        // ── دروازهٔ همبستگی پرتفوی (نسخهٔ ۵٫۱) ────────────────────────
+        // آلت‌کوین‌ها همبسته‌اند؛ ۸ لانگِ هم‌زمان = یک معامله × ۸ ریسک.
+        [$signals, $portfolio] = $this->portfolioGate($signals, $maxSignals);
+        $suppressed += $portfolio['dropped'];
 
         $scanId = $this->recordScan(count($tickers), count($signals), $breadth, $btc);
         foreach ($signals as &$s) {
@@ -131,16 +156,59 @@ final class SignalEngine
             'ai_used' => $aiUsed,
             'breadth' => $breadth,
             'btc' => $btc,
+            'portfolio' => $portfolio,
+            'fear_greed' => $extra['fg'] ?? null,
         ];
+    }
+
+    /**
+     * دروازهٔ همبستگی پرتفوی: سقف نماد هم‌جهت + سقف سایز تجمعی.
+     * سیگنال‌ها از قبل بر اساس امتیاز مرتب شده‌اند — بهترین‌ها زودتر نگه داشته می‌شوند.
+     * @return array{0:array,1:array{longs:int,shorts:int,total_position_pct:float,dropped:int,max_same_side:int}}
+     */
+    private function portfolioGate(array $signals, int $maxSignals): array
+    {
+        $maxSame = max(1, (int)($this->cfg['max_same_side'] ?? 4));
+        $maxPort = (float)($this->cfg['max_portfolio_position_pct'] ?? 60.0);
+        $kept = [];
+        $longs = 0;
+        $shorts = 0;
+        $totalPos = 0.0;
+        $dropped = 0;
+        foreach ($signals as $sig) {
+            if (count($kept) >= $maxSignals) {
+                $dropped++;
+                continue;
+            }
+            $isBuy = ($sig['side'] ?? 'BUY') === 'BUY';
+            $pos = (float)($sig['risk']['position_percent'] ?? 0);
+            $sideFull = $isBuy ? $longs >= $maxSame : $shorts >= $maxSame;
+            $sizeFull = ($totalPos + $pos) > $maxPort && $totalPos > 0;
+            if ($sideFull || $sizeFull) {
+                $dropped++;
+                continue;
+            }
+            if ($isBuy) { $longs++; } else { $shorts++; }
+            $totalPos += $pos;
+            $kept[] = $sig;
+        }
+        return [$kept, [
+            'longs' => $longs,
+            'shorts' => $shorts,
+            'total_position_pct' => round($totalPos, 1),
+            'dropped' => $dropped,
+            'max_same_side' => $maxSame,
+        ]];
     }
 
     /**
      * تحلیل یک نماد با قیف کامل (با ticker اختیاری برای جلوگیری از فراخوانی اضافه).
      *
      * @param array|null $btc خروجی btcRegime (در صورت null و فعال‌بودن فیلتر، محاسبه می‌شود)
+     * @param array $extra داده‌های کلان اسکن (funding/fg/btc_closes) — نسخهٔ ۵٫۱
      * @return array
      */
-    public function analyzeSymbol(string $symbol, ?array $ticker = null, ?array $btc = null, ?array $breadth = null): array
+    public function analyzeSymbol(string $symbol, ?array $ticker = null, ?array $btc = null, ?array $breadth = null, array $extra = []): array
     {
         $interval = (string)($this->cfg['timeframe'] ?? '1h');
         $cres = $this->market->candles($symbol, $interval, 220);
@@ -149,6 +217,21 @@ final class SignalEngine
         }
 
         $ctx = Context::build($cres['candles'], (array)$ticker, $this->cfg);
+
+        /* ── تزریق داده‌های لایه‌های جدید (نسخهٔ ۵٫۱) ──────────────── */
+        $closes = array_column($cres['candles'], 'close');
+        if (!empty($extra['btc_closes']) && $symbol !== 'BTCUSDT') {
+            $rs = Indicators::relativeStrength($closes, $extra['btc_closes'], 20);
+            if ($rs !== null) {
+                $ctx['rs_btc'] = $rs;
+            }
+        }
+        if (!empty($extra['funding']) && isset($extra['funding'][$symbol])) {
+            $ctx['funding_pct'] = (float)$extra['funding'][$symbol];
+        }
+        if (!empty($extra['fg'])) {
+            $ctx['fear_greed'] = $extra['fg'];
+        }
 
         /* ── رژیم بازار ─────────────────────────────────────────────── */
         $regime = Regime::classify($ctx);
@@ -189,9 +272,27 @@ final class SignalEngine
         ];
 
         /* ── دروازهٔ ۱: آستانه‌های سخت فیلترها ───────────────────────── */
-        if ($eval['passed'] < (int)($this->cfg['min_filters_passed'] ?? 11)
+        if ($eval['passed'] < (int)($this->cfg['min_filters_passed'] ?? 17)
             || $eval['tech_score'] < (float)($this->cfg['min_tech_score'] ?? 62)) {
             return $base + ['is_signal' => false, 'reason' => 'عبور نکردن از آستانهٔ فیلترهای سخت‌گیرانه'];
+        }
+
+        /* ── بارگذاری تنبل OI: فقط برای کاندیداهای عبورکرده (نسخهٔ ۵٫۱) ─ */
+        if (!empty($this->cfg['enable_open_interest']) && $ctx['oi_trend_pct'] === null) {
+            try {
+                $oi = $this->market->openInterestTrend($symbol);
+                if ($oi !== null) {
+                    $ctx['oi_trend_pct'] = $oi;
+                    $base['indicators']['oi_trend_pct'] = $oi;
+                    $eval = $this->filters->evaluate($ctx); // ارزیابی مجدد با OI
+                    $base['tech_score'] = $eval['tech_score'];
+                    $base['passed'] = $eval['passed'];
+                    $base['filters'] = $eval['filters'];
+                    if ($eval['passed'] < (int)($this->cfg['min_filters_passed'] ?? 17)) {
+                        return $base + ['is_signal' => false, 'reason' => 'بعد از ورود دادهٔ اوپن اینترست، فیلترها دیگر عبور نشدند'];
+                    }
+                }
+            } catch (Throwable $e) { /* OI اختیاری است */ }
         }
 
         /* ── دروازهٔ ۲: تأیید چند تایم‌فریمی ─────────────────────────── */
@@ -207,8 +308,8 @@ final class SignalEngine
             }
         }
 
-        /* ── دروازهٔ ۳: اجماع AI ────────────────────────────────────── */
-        $ai = ['ok' => false, 'side' => null, 'ai_score' => 0.0, 'agreement' => false, 'agree_ratio' => 0.0, 'opinions' => [], 'notes' => [], 'invalidation' => null];
+        /* ── دروازهٔ ۳: اجماع AI (+ وکیل مدافع + خودسازگاری + سابقه) ── */
+        $ai = ['ok' => false, 'side' => null, 'ai_score' => 0.0, 'agreement' => false, 'agree_ratio' => 0.0, 'opinions' => [], 'notes' => [], 'invalidation' => null, 'red_team' => null];
         $riskPlan = $this->risk->plan($eval['side'], $ctx['price'], $ctx['atr'], $eval['tech_score'], [
             'swing_low' => $ctx['swing_low'],
             'swing_high' => $ctx['swing_high'],
@@ -216,13 +317,33 @@ final class SignalEngine
         ]);
 
         if ($this->ai !== null) {
-            $validator = new AiValidator($this->ai, (int)($this->cfg['ai_panel_size'] ?? 3));
-            $ai = $validator->validate($base + [
+            // سابقهٔ واقعی سیگنال‌های مشابه از ردیاب — سوخت قضاوت مدل
+            $historyLine = '';
+            try {
+                if (!empty($this->cfg['ai_history_stats']) && $this->db !== null && $this->db->tableExists('signals')) {
+                    $provisionalTier = $this->tier((float)$eval['tech_score'], $eval, $mtf);
+                    $historyLine = (new SignalTracker($this->db, $this->market, $this->cfg))
+                        ->promptLine($provisionalTier, $regime['regime']);
+                }
+            } catch (Throwable $e) { /* سابقه اختیاری است */ }
+
+            // دادهٔ کامل بافت — مستقیم روی سطح اول (نه تودرتو) تا مدل همه را ببیند
+            $ctxKeys = ['rsi','macd_hist','ema9','ema21','ema50','ema200','bb_pos','stoch_k','stoch_d',
+                'adx','plus_di','minus_di','atr_pct','vol_ratio','obv_slope','vwap','structure',
+                'supertrend_dir','rs_btc','funding_pct','oi_trend_pct','fear_greed','div_rsi','sweep','fvg','poc','session'];
+            $summary = $base + array_intersect_key($ctx, array_flip($ctxKeys)) + [
                 'risk_entry' => $riskPlan['entry'],
                 'risk_stop' => $riskPlan['stop_loss'],
                 'risk_tp2' => $riskPlan['take_profit_2'],
                 'mtf' => $mtf,
-            ], $eval['side']);
+                'history_stats' => $historyLine,
+            ];
+            $validator = new AiValidator($this->ai, (int)($this->cfg['ai_panel_size'] ?? 3), [
+                'red_team' => (bool)($this->cfg['red_team'] ?? true),
+                'self_consistency' => (bool)($this->cfg['self_consistency'] ?? true),
+                'history_stats' => (bool)($this->cfg['ai_history_stats'] ?? true),
+            ]);
+            $ai = $validator->validate($summary, $eval['side']);
         }
 
         $techW = (float)($this->cfg['tech_weight'] ?? 0.6);
@@ -265,6 +386,15 @@ final class SignalEngine
             $side = $eval['side']; // بدون الزام اجماع، جهت تکنیکال مرجع است
         }
 
+        // ── اعتماد کالیبره: ترکیب امتیاز موتور با وین‌ریت تاریخی همان ترکیب ──
+        $calibration = null;
+        try {
+            if ($this->db !== null && $this->db->tableExists('signals')) {
+                $calibration = (new SignalTracker($this->db, $this->market, $this->cfg))
+                    ->calibratedConfidence($combined, $tier, $regime['regime']);
+            }
+        } catch (Throwable $e) { /* کالیبراسیون اختیاری است */ }
+
         return $base + [
             'is_signal' => true,
             'side' => $side,
@@ -272,7 +402,8 @@ final class SignalEngine
             'ai' => $ai,
             'mtf' => $mtf,
             'combined_score' => $combined,
-            'confidence' => $combined,
+            'confidence' => $calibration['confidence'] ?? $combined,
+            'calibrated' => $calibration,
             'risk' => $riskPlan,
             'suppressed' => $cooldown,
             'suppressed_reason' => $cooldown ? 'سیگنال مشابه همین نماد در ' . (int)($this->cfg['cooldown_hours'] ?? 12) . ' ساعت اخیر صادر شده است.' : null,

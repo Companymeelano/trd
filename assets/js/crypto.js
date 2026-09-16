@@ -131,6 +131,14 @@
         out += '<li class="' + (ai.agreement ? 'ok' : 'bad') + '"><i class="fa-solid ' + (ai.agreement ? 'fa-handshake' : 'fa-triangle-exclamation') + '"></i> ' +
             (ai.agreement ? 'اجماع AI با سمت تکنیکال هم‌راستاست' : 'هشدار: اجماع AI با تکنیکال هم‌راستا نیست') +
             ' · امتیاز AI: ' + M.toFa(ai.ai_score) + '</li>';
+        if (ai.red_team && ai.red_team.ok) {
+            const rt = ai.red_team;
+            const rtIcon = rt.verdict === 'VALID' ? 'fa-shield-halved' : (rt.verdict === 'WEAK' ? 'fa-triangle-exclamation' : 'fa-skull-crossbones');
+            const rtCls = rt.verdict === 'VALID' ? 'ok' : (rt.verdict === 'WEAK' ? 'warn' : 'bad');
+            out += '<li class="' + rtCls + '"><i class="fa-solid ' + rtIcon + '"></i> <b>وکیل مدافع:</b> ' +
+                M.escapeHtml(rt.verdict) + ' (' + M.toFa(Math.round(rt.confidence)) + '٪)' +
+                ((rt.flaws || []).length ? ' — حفره‌ها: ' + rt.flaws.map(function (f) { return M.escapeHtml(String(f).slice(0, 90)); }).join(' · ') : '') + '</li>';
+        }
         if (ai.invalidation) {
             out += '<li class="dim"><i class="fa-solid fa-ban"></i> شرط ابطال: ' + M.escapeHtml(ai.invalidation) + '</li>';
         }
@@ -154,8 +162,13 @@
             'قیمت: ' + price(s.price) + ' · ۲۴س: ' + M.toFa(Math.round(s.change24 * 10) / 10) + '٪ · حجم: ' + compact(s.quote_volume) +
             ' · <span class="regime-chip regime-' + M.escapeHtml(s.regime || 'range') + '">' + M.escapeHtml(s.regime_label || REGIME_LABELS[s.regime] || s.regime) + '</span>' +
             '</div></div>' +
-            confidenceRing(s.combined_score) +
+            confidenceRing(s.confidence || s.combined_score) +
             '</div>';
+        if (s.calibrated && s.calibrated.calibrated) {
+            const cs = s.calibrated.stats;
+            html += '<div class="calib-chip"><i class="fa-solid fa-history"></i> اعتماد کالیبره با گذشته: <b>' + M.toFa(Math.round(s.calibrated.confidence)) + '</b>' +
+                ' (از ' + M.toFa(cs.n) + ' سیگنال مشابه: TP1 ' + M.toFa(cs.tp1_rate) + '٪ · میانگین ' + M.toFa(cs.avg_r) + 'R)</div>';
+        }
 
         // اعداد عملیاتی
         html += '<div class="grid grid--6" style="margin-top:14px">';
@@ -247,6 +260,21 @@
                     ' · تغییر ۲۴س: ' + M.toFa(Math.round((btc.change24 || 0) * 10) / 10) + '٪';
             }
 
+            // ترس و طمع (لایهٔ سنتیمنت)
+            const fg = data.fear_greed;
+            if (fg && typeof fg.value === 'number') {
+                const fgEl = el('fg_value'); const fgFill = el('fg_fill'); const fgLabel = el('fg_label');
+                if (fgEl) { fgEl.textContent = M.toFa(fg.value) + '/۱۰۰'; }
+                if (fgFill) {
+                    fgFill.style.width = Math.max(2, Math.min(100, fg.value)) + '%';
+                    fgFill.style.background = fg.value <= 25 ? '#34d399' : (fg.value >= 75 ? '#fb7185' : '#fbbf24');
+                }
+                if (fgLabel) {
+                    const fa = fg.value <= 25 ? 'ترس شدید — فرصت خلاف‌گردش' : (fg.value >= 75 ? 'طمع شدید — احتیاط' : 'محدودهٔ نرمال');
+                    fgLabel.textContent = fa;
+                }
+            }
+
             // عرض بازار
             const b = data.breadth || {};
             el('breadth_value').textContent = M.toFa(b.up || 0) + ' ↑ / ' + M.toFa(b.down || 0) + ' ↓';
@@ -292,12 +320,13 @@
         setBusy(btn, true, 'در حال رصد بازار…');
         M.modal.open('رصد کل بازار کریپتو', 'دریافت دادهٔ زندهٔ بازار و اجرای قیف ۹ مرحله‌ای…');
         const stages = [
-            { at: 10, text: 'دریافت فهرست ارزهای پرحجم…' },
-            { at: 28, text: 'محاسبهٔ رژیم بازار و اندیکاتورها (RSI، ADX، OBV، VWAP، Supertrend)…' },
-            { at: 48, text: 'اجرای ۱۵ فیلتر هم‌گرایی وزن‌دار…' },
-            { at: 64, text: 'تأیید چند تایم‌فریمی (1h/4h/1d)…' },
-            { at: 80, text: 'اعتبارسنجی با اجماع چندمدلی هوش مصنوعی…' },
-            { at: 92, text: 'پلن ریسک ساختاری، درجه‌بندی و خنک‌کردن تکرار…' },
+            { at: 8, text: 'دریافت فهرست ارزهای پرحجم + فاندینگ و ترس و طمع…' },
+            { at: 22, text: 'محاسبهٔ رژیم بازار و ۲۵+ اندیکاتور روی کندل بسته…' },
+            { at: 42, text: 'اجرای ۲۵ فیلتر هم‌گرایی در ۵ لایهٔ اطلاعاتی…' },
+            { at: 58, text: 'تأیید چند تایم‌فریمی و اوپن اینترست…' },
+            { at: 74, text: 'اجماع چندمدلی AI + وکیل مدافع (Red-Team)…' },
+            { at: 88, text: 'پلن ریسک ساختاری، درجه‌بندی و کالیبراسیون تاریخی…' },
+            { at: 96, text: 'دروازهٔ همبستگی پرتفوی و خنک‌کردن تکرار…' },
         ];
         let i = 0;
         const tick = setInterval(() => {
@@ -308,7 +337,9 @@
             clearInterval(tick);
             M.modal.set(100, 'اسکن ' + M.toFa(data.scanned) + ' ارز کامل شد');
             const supp = data.suppressed ? ' · ' + M.toFa(data.suppressed) + ' خنک‌شده' : '';
-            el('scan_meta').textContent = M.toFa(data.scanned) + ' ارز اسکن شد · ' + M.toFa(data.signal_count) + ' سیگنال' + supp + ' · ' + M.toFa(Math.round(data.duration_ms)) + 'ms';
+            const pf = data.portfolio;
+            const pfTxt = pf ? ' · پرتفوی: ' + M.toFa(pf.longs) + 'L/' + M.toFa(pf.shorts) + 'S (' + M.toFa(pf.total_position_pct) + '٪)' : '';
+            el('scan_meta').textContent = M.toFa(data.scanned) + ' ارز · ' + M.toFa(data.signal_count) + ' سیگنال' + supp + pfTxt + ' · ' + M.toFa(Math.round(data.duration_ms)) + 'ms';
             renderSignals(data.signals || []);
             if (!data.signals || !data.signals.length) {
                 M.toast('هیچ ارزی از قیف سخت‌گیرانه عبور نکرد — این یعنی فیلترها درست کار می‌کنند.', 'info', 6000);
@@ -370,16 +401,45 @@
         const btn = el('btn_backtest');
         setBusy(btn, true, 'در حال شبیه‌سازی…');
         try {
+            const mode = (el('bt_mode') && el('bt_mode').value) || 'standard';
             const data = await M.api('api/backtest.php', {
                 symbol: sym,
                 interval: el('bt_tf').value,
                 bars: Number(el('bt_bars').value) || 500,
+                mode: mode,
             });
             const box = el('backtest_result');
             if (!data.ok) {
                 box.innerHTML = '<p class="help" style="color:var(--rose)"><i class="fa-solid fa-triangle-exclamation"></i> ' + M.escapeHtml(data.error || 'بک‌تست ناموفق بود.') + '</p>';
                 return;
             }
+
+            // ── حالت واک‌فوروارد: پایداری در پنجره‌های زمانی ──
+            if (mode === 'walkforward') {
+                const verdict = { robust: ['مستحکم', 'ok'], mixed: ['متوسط', 'warn'], fragile: ['شکننده', 'bad'] }[data.verdict] || ['نامشخص', ''];
+                let w = '<div class="grid grid--4" style="margin-bottom:12px">';
+                w += kv('پنجره‌های سودده', M.toFa(data.positive_folds) + ' از ' + M.toFa((data.folds || []).length), data.stability >= 0.75 ? 'var(--emerald)' : 'var(--rose)');
+                w += kv('پایداری', M.toFa(Math.round(data.stability * 100)) + '٪', data.stability >= 0.75 ? 'var(--emerald)' : 'var(--rose)');
+                w += kv('حکم', verdict[0], data.verdict === 'robust' ? 'var(--emerald)' : 'var(--rose)');
+                w += kv('کندل‌ها', M.toFa(data.bars));
+                w += '</div>';
+                w += '<div class="table-wrap"><table class="data"><thead><tr><th>پنجره</th><th>از</th><th>تا</th><th>معامله</th><th>وین‌ریت</th><th>امید R</th><th>PF</th><th>حداکثر افت</th></tr></thead><tbody>';
+                (data.folds || []).forEach(function (f) {
+                    w += '<tr><td>' + M.toFa(f.fold) + '</td><td class="mono" style="font-size:11px">' + M.escapeHtml(f.from || '') + '</td>' +
+                        '<td class="mono" style="font-size:11px">' + M.escapeHtml(f.to || '') + '</td>' +
+                        '<td class="mono">' + M.toFa(f.trades || 0) + '</td>' +
+                        '<td class="mono">' + M.toFa(f.winrate || 0) + '٪</td>' +
+                        '<td class="mono" style="color:' + (f.expectancy_r > 0 ? 'var(--emerald)' : 'var(--rose)') + '">' + M.toFa(f.expectancy_r || 0) + 'R</td>' +
+                        '<td class="mono">' + M.toFa(f.profit_factor || 0) + '</td>' +
+                        '<td class="mono">' + M.toFa(f.max_drawdown_r || 0) + 'R</td></tr>';
+                });
+                w += '</tbody></table></div>';
+                w += '<p class="help" style="margin-top:10px"><i class="fa-solid fa-circle-info"></i> استراتژی فقط وقتی «مستحکم» است که در ≥۷۵٪ پنجره‌های زمانی سودده باشد؛ شکستن یک پنجرهٔ خوش‌شانس، حکم «شکننده» می‌دهد.</p>';
+                box.innerHTML = w;
+                M.toast('واک‌فوروارد ' + sym + ': ' + verdict[0] + ' (' + M.toFa(Math.round(data.stability * 100)) + '٪ پنجره‌های سودده)', data.verdict === 'robust' ? 'ok' : 'warn', 6500);
+                return;
+            }
+
             const good = data.expectancy_r > 0;
             let html = '<div class="grid grid--6" style="margin-bottom:12px">';
             html += kv('معامله‌ها', M.toFa(data.trades));
@@ -389,6 +449,35 @@
             html += kv('حداکثر افت', M.toFa(data.max_drawdown_r) + 'R', 'var(--rose)');
             html += kv('بازه', M.escapeHtml(data.from || '') + ' → ' + M.escapeHtml(data.to || ''));
             html += '</div>';
+
+            // تفکیک رژیمی — استراتژی در کدام رژیم سود می‌دهد؟
+            if (data.by_regime && Object.keys(data.by_regime).length) {
+                html += '<div class="table-wrap" style="margin-bottom:12px"><table class="data"><thead><tr><th>رژیم</th><th>معامله</th><th>وین‌ریت</th><th>امید R</th></tr></thead><tbody>';
+                Object.keys(data.by_regime).forEach(function (r) {
+                    const row = data.by_regime[r];
+                    html += '<tr><td><span class="regime-chip regime-' + M.escapeHtml(r) + '">' + M.escapeHtml(REGIME_LABELS[r] || r) + '</span></td>' +
+                        '<td class="mono">' + M.toFa(row.trades) + '</td>' +
+                        '<td class="mono">' + M.toFa(row.winrate) + '٪</td>' +
+                        '<td class="mono" style="color:' + (row.expectancy_r > 0 ? 'var(--emerald)' : 'var(--rose)') + '">' + M.toFa(row.expectancy_r) + 'R</td></tr>';
+                });
+                html += '</tbody></table></div>';
+            }
+
+            // مونت‌کارلو — توزیع واقعی ریسک
+            if (data.monte_carlo && data.monte_carlo.ok) {
+                const mc = data.monte_carlo;
+                html += '<div class="card-3d" style="padding:12px;border-color:rgba(99,102,241,.3);margin-bottom:12px">';
+                html += '<p class="field-label" style="margin:0 0 8px"><i class="fa-solid fa-dice"></i> مونت‌کارلو — ' + M.toFa(mc.runs) + ' بازچینی تصادفی ترتیب معاملات</p>';
+                html += '<div class="grid grid--6">';
+                html += kv('R نهایی (میانه)', M.toFa(mc.final_r_p50) + 'R', mc.final_r_p50 > 0 ? 'var(--emerald)' : 'var(--rose)');
+                html += kv('R بدشانس‌ترین ۵٪', M.toFa(mc.final_r_p5) + 'R', mc.final_r_p5 > 0 ? 'var(--emerald)' : 'var(--rose)');
+                html += kv('افت میانه', M.toFa(mc.max_dd_p50) + 'R');
+                html += kv('افت بدشانس‌ترین ۵٪', M.toFa(mc.max_dd_p95) + 'R', 'var(--rose)');
+                html += kv('احتمال ضرر', M.toFa(Math.round(mc.loss_prob * 100)) + '٪', mc.loss_prob < 0.3 ? 'var(--emerald)' : 'var(--rose)');
+                html += kv('معامله پایه', M.toFa(mc.trades));
+                html += '</div></div>';
+            }
+
             html += '<div class="bt-equity"><p class="field-label">منحنی سرمایه (R تجمعی)</p>' + sparkline(data.equity || [], 600, 70) + '</div>';
             if (Array.isArray(data.trades_list) && data.trades_list.length) {
                 html += '<div class="table-wrap" style="margin-top:12px;max-height:260px;overflow:auto"><table class="data"><thead><tr>' +
@@ -415,6 +504,76 @@
         }
     }
 
+    /* ── ردیاب سیگنال (داوری گذشته) ═════════════════════════════════ */
+
+    function renderTracker(data) {
+        const box = el('tracker_result');
+        if (!box) { return; }
+        const o = (data && data.overall) || { n: 0, tp1_rate: 0, win_rate: 0, avg_r: 0 };
+        const rows = (data && data.rows) || [];
+        if (!o.n) {
+            box.innerHTML = '<p class="help"><i class="fa-solid fa-circle-info"></i> هنوز سیگنال داوری‌شده‌ای وجود ندارد. پس از چند اسکن و گذشت زمان، دکمهٔ «داوری سیگنال‌های باز» را بزنید تا عملکرد واقعی درجه‌ها اینجا ظاهر شود.</p>';
+            return;
+        }
+        let html = '<div class="grid grid--4" style="margin-bottom:12px">';
+        html += kv('سیگنال‌های داوری‌شده', M.toFa(o.n));
+        html += kv('نرخ TP1', M.toFa(o.tp1_rate) + '٪', o.tp1_rate >= 55 ? 'var(--emerald)' : 'var(--rose)');
+        html += kv('وین‌ریت واقعی', M.toFa(o.win_rate) + '٪', o.win_rate >= 50 ? 'var(--emerald)' : 'var(--rose)');
+        html += kv('میانگین R واقعی', M.toFa(o.avg_r) + 'R', o.avg_r > 0 ? 'var(--emerald)' : 'var(--rose)');
+        html += '</div>';
+        html += '<div class="table-wrap"><table class="data"><thead><tr><th>درجه</th><th>رژیم</th><th>تعداد</th><th>نرخ TP1</th><th>نرخ TP2</th><th>استاپ خام</th><th>وین‌ریت</th><th>میانگین R</th></tr></thead><tbody>';
+        rows.forEach(function (r) {
+            html += '<tr>' +
+                '<td>' + tierBadge(r.tier) + '</td>' +
+                '<td><span class="regime-chip regime-' + M.escapeHtml(r.regime || 'range') + '">' + M.escapeHtml(REGIME_LABELS[r.regime] || r.regime) + '</span></td>' +
+                '<td class="mono">' + M.toFa(r.n) + '</td>' +
+                '<td class="mono" style="color:' + (r.tp1_rate >= 55 ? 'var(--emerald)' : 'var(--rose)') + '">' + M.toFa(r.tp1_rate) + '٪</td>' +
+                '<td class="mono">' + M.toFa(r.tp2_rate) + '٪</td>' +
+                '<td class="mono" style="color:var(--rose)">' + M.toFa(r.raw_stop_rate) + '٪</td>' +
+                '<td class="mono">' + M.toFa(r.win_rate) + '٪</td>' +
+                '<td class="mono" style="color:' + (r.avg_r > 0 ? 'var(--emerald)' : 'var(--rose)') + '">' + M.toFa(r.avg_r) + 'R</td>' +
+                '</tr>';
+        });
+        html += '</tbody></table></div>';
+        html += '<p class="help" style="margin-top:8px"><i class="fa-solid fa-circle-info"></i> «استاپ خام» = خوردن استاپ قبل از رسیدن به TP1. این آمار به‌صورت خودکار در قضاوت AI (پرامپت) و «اعتماد کالیبره» کارت‌های سیگنال تزریق می‌شود.</p>';
+        box.innerHTML = html;
+    }
+
+    async function loadTracker() {
+        try {
+            const data = await M.api('api/tracker.php?action=stats', null, { method: 'GET' });
+            if (data.ok) { renderTracker(data); }
+            const meta = el('tracker_meta');
+            if (meta && data.ok) {
+                meta.textContent = data.total ? M.toFa(data.total) + ' داوری‌شده' : 'بدون داوری';
+                meta.className = 'badge ' + (data.total ? 'badge--ok' : '');
+            }
+        } catch (err) { /* بی‌دیتابیس بی‌صدا رد می‌شود */ }
+    }
+
+    async function runTracker() {
+        const btn = el('btn_tracker_run');
+        setBusy(btn, true, 'در حال داوری…');
+        try {
+            const data = await M.api('api/tracker.php', { action: 'run' });
+            if (data.ok) {
+                renderTracker(data.stats || data);
+                M.toast('داوری کامل شد: ' + M.toFa(data.checked) + ' بررسی · ' + M.toFa(data.closed) + ' بسته‌شده', 'ok', 6000);
+                const meta = el('tracker_meta');
+                if (meta && data.stats) {
+                    meta.textContent = M.toFa(data.stats.total || 0) + ' داوری‌شده';
+                    meta.className = 'badge badge--ok';
+                }
+            } else {
+                M.toast(data.error || 'داوری ناموفق بود.', 'bad', 6000);
+            }
+        } catch (err) {
+            M.toast(err.message, 'bad', 6000);
+        } finally {
+            setBusy(btn, false);
+        }
+    }
+
     /* ── راه‌اندازی ═══════════════════════════════════════════════════ */
 
     document.addEventListener('DOMContentLoaded', () => {
@@ -425,8 +584,12 @@
         if (btBtn) { btBtn.addEventListener('click', runBacktest); }
         const btSym = el('bt_symbol');
         if (btSym) { btSym.addEventListener('keydown', (e) => { if (e.key === 'Enter') { runBacktest(); } }); }
+        const trBtn = el('btn_tracker_run');
+        if (trBtn) { trBtn.addEventListener('click', runTracker); }
         loadPulse();
+        loadTracker();
         setInterval(loadPulse, 60000); // پالس بازار هر دقیقه
+        setInterval(loadTracker, 5 * 60000); // آمار ردیاب هر ۵ دقیقه
         M.refreshSystemStatus();
     });
 }(window, document));

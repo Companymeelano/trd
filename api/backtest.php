@@ -1,12 +1,15 @@
 <?php
 /**
- * POST /api/backtest.php — بک‌تست استراتژی تکنیکال روی یک نماد.
- * ورودی: {symbol: "BTCUSDT", interval?: "1h", bars?: 500}
- * خروجی: تعداد معامله، وین‌ریت، امید ریاضی (R)، پروفایت فاکتور،
- *         حداکثر افت سرمایه و منحنی سرمایه + ۴۰ معاملهٔ آخر.
+ * POST /api/backtest.php — بک‌تست و اعتبارسنجی استراتژی روی یک نماد.
+ * ورودی: {symbol: "BTCUSDT", interval?: "1h", bars?: 500, mode?: "standard|walkforward|montecarlo"}
+ *
+ * حالت‌ها (نسخهٔ ۵٫۱):
+ *   standard    — بک‌تست کامل با کارمزد + اسلیپیج + تفکیک رژیمی
+ *   walkforward — پنجره‌های زمانی متوالی؛ پایداری استراتژی
+ *   montecarlo  — ۵۰۰ بازچینی تصادفی ترتیب معاملات؛ توزیع واقعی ریسک
  *
  * شفافیت: فقط لایهٔ تکنیکال (بدون اجماع AI که در گذشته قابل بازتولید نیست)؛
- * ورود در کندل بعدی، استاپ اولویت دارد، کارمزد لحاظ شده است.
+ * ورود در کندل بعدی، استاپ اولویت دارد، کارمزد و اسلیپیج لحاظ شده است.
  */
 
 require __DIR__ . '/bootstrap.php';
@@ -14,6 +17,7 @@ require __DIR__ . '/bootstrap.php';
 use Meelano\Config;
 use Meelano\Crypto\Backtest;
 use Meelano\Crypto\MarketData;
+use Meelano\Crypto\Robustness;
 use Meelano\Security;
 
 m_guard(false, 'backtest');
@@ -31,9 +35,26 @@ if (!in_array($interval, $allowedTf, true)) {
     $interval = '1h';
 }
 $bars = max(220, min(1000, (int)($in['bars'] ?? 500)));
+$mode = m_clean_string($in['mode'] ?? 'standard', 16);
+if (!in_array($mode, ['standard', 'walkforward', 'montecarlo'], true)) {
+    $mode = 'standard';
+}
 
+$market = new MarketData(null, (array)Config::get('market', []));
 $cfg = array_merge((array)Config::get('trading', []), (array)Config::get('market', []));
-$bt = new Backtest(new MarketData(null, (array)Config::get('market', [])), $cfg);
+
+if ($mode === 'walkforward') {
+    $rob = new Robustness($market, $cfg);
+    m_json($rob->walkForward($symbol, $interval, max(600, $bars), 4));
+}
+
+$bt = new Backtest($market, $cfg);
 $result = $bt->run($symbol, $interval, $bars);
+
+if ($mode === 'montecarlo' && !empty($result['ok'])) {
+    $rob = new Robustness($market, $cfg);
+    $rs = array_column($result['trades_list'], 'r');
+    $result['monte_carlo'] = $rob->monteCarlo($rs, 500);
+}
 
 m_json($result);

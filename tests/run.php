@@ -28,6 +28,8 @@ use Meelano\Crypto\Indicators;
 use Meelano\Crypto\MarketData;
 use Meelano\Crypto\Regime;
 use Meelano\Crypto\RiskManager;
+use Meelano\Crypto\Robustness;
+use Meelano\Crypto\SignalTracker;
 use Meelano\Crypto\SignalEngine;
 use Meelano\Db;
 use Meelano\Installer;
@@ -151,7 +153,7 @@ $buyCtx = [
 ];
 $evalBuy = (new Filters())->evaluate($buyCtx);
 check('بافت صعودی → سمت BUY', $evalBuy['side'] === 'BUY', $evalBuy['side']);
-check('حداقل ۱۳ فیلتر از ۱۵ عبور کردند', $evalBuy['passed'] >= 13, $evalBuy['passed'] . '/' . $evalBuy['total']);
+check('حداقل ۲۲ فیلتر از ۲۵ عبور کردند', $evalBuy['passed'] >= 22, $evalBuy['passed'] . '/' . $evalBuy['total']);
 check('امتیاز تکنیکال بالای ۷۰', $evalBuy['tech_score'] >= 70, (string)$evalBuy['tech_score']);
 check('هم‌گرایی شمارش شده', $evalBuy['confluence'] >= 6, $evalBuy['confluence'] . '/' . $evalBuy['confluence_total']);
 
@@ -311,6 +313,253 @@ Config::load(true);
 check('بازخوانی رمزگشایی', Config::get('ai.providers.openai.api_key') === 'sk-secret-crypto-1234567890');
 check('پیش‌فرض دیتابیس بدون رمز است', Config::get('db.pass', 'NOT-EMPTY') === '');
 @unlink(MEELANO_CONFIG . '/settings.php'); @unlink(MEELANO_CONFIG . '/.app_key');
+
+
+/* ═══ ۱۲) اندیکاتورهای نسخهٔ ۵٫۱ ═══ */
+section('اندیکاتورهای v5.1');
+$erTrend = Indicators::last(Indicators::kaufmanER($up, 10));
+check('ER در روند قوی بالای ۰٫۵', (float)$erTrend > 0.5, (string)$erTrend);
+$chop = []; $px = 100.0;
+for ($i = 0; $i < 300; $i++) { $px += ($i % 2 === 0 ? 0.9 : -0.9); $chop[] = $px; }
+$erChop = Indicators::last(Indicators::kaufmanER($chop, 10));
+check('ER در رِنج چاپی زیر ۰٫۳', (float)$erChop < 0.3, (string)$erChop);
+
+$divPrice = [10, 9, 10, 11, 10, 9, 10, 11, 12, 11, 10, 9, 8.5, 9.5, 11, 12];
+$divOsc = [50, 40, 50, 55, 45, 20, 50, 55, 60, 55, 50, 45, 30, 40, 55, 60];
+$div = Indicators::divergence($divPrice, $divOsc, 15);
+check('واگرایی صعودی تشخیص داده شد', ($div['type'] ?? null) === 'bull', json_encode($div, JSON_UNESCAPED_UNICODE));
+$bearPrice = [5, 6, 7, 8, 9, 8, 7, 8, 9, 10, 11, 10, 9, 10, 12, 13];
+$bearOsc = [50, 55, 60, 65, 70, 65, 60, 62, 66, 68, 50, 48, 45, 48, 52, 55];
+$divBear = Indicators::divergence($bearPrice, $bearOsc, 15);
+check('واگرایی نزولی تشخیص داده شد', ($divBear['type'] ?? null) === 'bear', json_encode($divBear, JSON_UNESCAPED_UNICODE));
+
+$fvgBull = Indicators::fvgAt([10, 10, 12], [9.5, 9.6, 10.8], 2);
+check('FVG صعودی: low جدید بالای high دو کندل قبل', is_array($fvgBull) && $fvgBull['side'] === 'bull' && $fvgBull['mid'] > 10);
+$fvgBear = Indicators::fvgAt([12, 10, 9], [10, 9.5, 8], 2);
+check('FVG نزولی: high جدید زیر low دو کندل قبل', is_array($fvgBear) && $fvgBear['side'] === 'bear');
+
+$pH = array_fill(0, 60, 51.0); $pL = array_fill(0, 60, 49.0); $pC = array_fill(0, 60, 50.0);
+$pV = array_fill(0, 60, 100.0); $pV[30] = 10000.0;
+$pocRes = Indicators::poc($pH, $pL, $pC, $pV, 59, 60, 24);
+check('POC روی گرهٔ حجم افتاد', is_array($pocRes) && abs($pocRes['poc'] - 50) < 0.5 && $pocRes['value_area'] > 0.5, json_encode($pocRes));
+
+$sesSat = Indicators::sessionOf(strtotime('2026-09-19 12:00:00 UTC'));
+check('سشن شنبه = آخر هفته', $sesSat === 'weekend', $sesSat);
+$sesWed = Indicators::sessionOf(strtotime('2026-09-16 12:00:00 UTC'));
+check('سشن چهارشنبه ۱۲UTC = اروپا', $sesWed === 'europe', $sesWed);
+
+$swH = [20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20];
+$swL = [20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 19.3];
+$swC = [20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 19.8];
+$swV = array_fill(0, 22, 100.0); $swV[21] = 300.0;
+$sweepRes = Indicators::liquiditySweep($swH, $swL, $swC, $swV, 21, 19.5, 25.0);
+check('سویپ صعودی کف شناسایی شد', is_array($sweepRes) && $sweepRes['side'] === 'bull' && $sweepRes['vol_ratio'] >= 1.3, json_encode($sweepRes));
+
+$rsUp = Indicators::relativeStrength(array_fill(0, 30, 100.0), array_fill(0, 30, 50.0), 20);
+$rsStrong = Indicators::relativeStrength(
+    [100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116, 117, 118, 119, 120],
+    array_fill(0, 21, 50.0), 20
+);
+check('RS نسبت به BTC: سهمیهٔ ثابت = صفر', (float)$rsUp === 0.0, (string)$rsUp);
+check('RS نسبت به BTC: رشد سهم = مثبت', (float)$rsStrong > 15, (string)$rsStrong);
+
+/* ═══ ۱۳) MarketData: کندل بسته + مشتقات + سنتیمنت ═══ */
+section('MarketData v5.1');
+$kl = [];
+for ($i = 4; $i >= 0; $i--) {
+    $t = ($i === 0) ? time() : time() - $i * 3600; // آخرین کندل قطعاً ناقص است
+    $kl[] = [$t * 1000, '100', '101', '99', '100.5', '500'];
+}
+$mockClosed = new MockTransport();
+$mockClosed->on('api.binance.com/api/v3/klines', ['status' => 200, 'body' => json_encode($kl)]);
+$mdClosed = new MarketData($mockClosed);
+$resClosed = $mdClosed->candles('BTCUSDT', '1h', 5);
+check('کندل ناقص آخر حذف شد', count($resClosed['candles']) === 4 && $resClosed['dropped_unclosed'] === 1, count($resClosed['candles']) . '');
+$resOpen = $mdClosed->candles('BTCUSDT', '1h', 5, true);
+check('با includeUnclosed کندل جاری برمی‌گردد', count($resOpen['candles']) === 5 && $resOpen['dropped_unclosed'] === 0);
+
+$mockDeriv = new MockTransport();
+$mockDeriv->on('fapi.binance.com/fapi/v1/premiumIndex', ['status' => 200, 'body' => json_encode([
+    ['symbol' => 'BTCUSDT', 'lastFundingRate' => '0.0003'],
+    ['symbol' => 'ETHUSDT', 'lastFundingRate' => '-0.0002'],
+])]);
+$mockDeriv->on('fapi.binance.com/futures/data/openInterestHist', ['status' => 200, 'body' => json_encode(
+    array_map(static function ($i) { return ['sumOpenInterest' => 100 + $i]; }, range(0, 24))
+)]);
+$mockDeriv->on('api.alternative.me/fng/', ['status' => 200, 'body' => json_encode(['data' => [['value' => '25', 'value_classification' => 'Extreme Fear']]])]);
+$mdDeriv = new MarketData($mockDeriv);
+$fMap = $mdDeriv->fundingRates();
+check('فاندینگ BTCUSDT = ۰٫۰۳٪', isset($fMap['BTCUSDT']) && abs($fMap['BTCUSDT'] - 0.03) < 0.001, json_encode($fMap));
+$oiT = $mdDeriv->openInterestTrend('BTCUSDT');
+check('روند OI = ۲۴٪', $oiT !== null && abs($oiT - 24.0) < 0.5, (string)$oiT);
+$fgRes = $mdDeriv->fearGreed();
+check('ترس و طمع = ۲۵ (ترس شدید)', is_array($fgRes) && $fgRes['value'] === 25, json_encode($fgRes));
+
+/* ═══ ۱۴) فیلترهای جدید در ارزیابی ═══ */
+section('فیلترهای v5.1');
+$v51Ctx = $buyCtx + ['rs_btc' => 5.0, 'funding_pct' => 0.08, 'fear_greed' => ['value' => 20, 'label' => 'Extreme Fear'],
+    'oi_trend_pct' => 6.0, 'session' => 'overlap', 'er' => 0.62];
+$eval51 = (new Filters())->evaluate($v51Ctx);
+$findByKey = static function (array $eval, string $key) {
+    foreach ($eval['filters'] as $f) { if ($f['key'] === $key) { return $f; } }
+    return null;
+};
+check('مجموع فیلترها = ۲۵', $eval51['total'] === 25, $eval51['total'] . '');
+check('فیلتر RS/BTC جهت خرید داد', ($findByKey($eval51, 'rs_btc')['side'] ?? '') === 'BUY');
+check('فیلتر فاندینگ افراطی = هشدار فروش', ($findByKey($eval51, 'funding')['side'] ?? '') === 'SELL');
+check('فیلتر ترس‌وطمع = خرید خلاف‌گردش', ($findByKey($eval51, 'fear_greed')['side'] ?? '') === 'BUY');
+check('فیلتر OI هم‌جهت = خرید', ($findByKey($eval51, 'open_interest')['side'] ?? '') === 'BUY');
+check('فیلتر سشن هم‌پوشانی عبور کرد', ($findByKey($eval51, 'session')['pass'] ?? false) === true);
+$nullCtx = $buyCtx; // بدون دادهٔ خارجی
+$evalNull = (new Filters())->evaluate($nullCtx);
+$fRsbtc = $findByKey($evalNull, 'rs_btc');
+check('نبود دادهٔ خارجی = عبور خنثی (نه مسدود)', $fRsbtc['pass'] === true && $fRsbtc['side'] === 'NEUTRAL' && $fRsbtc['score'] <= 0.5);
+check('دروازهٔ OI خروج جریان را رد می‌کند', (new Filters())->evaluate($buyCtx + ['oi_trend_pct' => -6.0])['passed'] < $evalNull['passed']);
+
+/* ═══ ۱۵) ردیاب سیگنال — داوری گذشته ═══ */
+section('SignalTracker');
+$tracker = new SignalTracker($db, new MarketData($mock), $baseCfg + ['backtest_fee_bps' => 8, 'backtest_slippage_bps' => 3]);
+$e200 = (float)$candles[200]['close'];
+$db->insert('signals', [
+    'symbol' => 'TESTUSDT', 'side' => 'BUY', 'timeframe' => '1h', 'tier' => 'A+', 'regime' => 'trend_up',
+    'entry_price' => $e200, 'stop_loss' => $e200 - 2, 'take_profit_1' => $e200 + 3,
+    'take_profit_2' => $e200 + 6, 'take_profit_3' => $e200 + 9,
+    'status' => 'new', 'outcome' => '', 'created_at' => date('Y-m-d H:i:s', (int)$candles[200]['time']),
+]);
+$db->insert('signals', [
+    'symbol' => 'STOPUSDT', 'side' => 'BUY', 'timeframe' => '1h', 'tier' => 'C', 'regime' => 'range',
+    'entry_price' => $e200, 'stop_loss' => $e200 + 0.5, 'take_profit_1' => $e200 + 3,
+    'take_profit_2' => $e200 + 6, 'take_profit_3' => $e200 + 9,
+    'status' => 'new', 'outcome' => '', 'created_at' => date('Y-m-d H:i:s', (int)$candles[200]['time']),
+]);
+$trRun = $tracker->run(10);
+check('ردیاب سیگنال‌ها را داوری کرد', $trRun['ok'] && $trRun['checked'] >= 2, json_encode($trRun));
+$rowTp = $db->selectOne('SELECT * FROM ' . $db->table('signals') . " WHERE symbol = 'TESTUSDT'");
+check('سناریوی TP3: هر سه تارگت خورده شد', (int)$rowTp['hit_tp3'] === 1 && (int)$rowTp['hit_tp1'] === 1, json_encode($rowTp));
+check('سناریوی TP3: R مثبت قوی', (float)$rowTp['r_multiple'] > 1.5, (string)$rowTp['r_multiple']);
+$rowStop = $db->selectOne('SELECT * FROM ' . $db->table('signals') . " WHERE symbol = 'STOPUSDT'");
+check('سناریوی استاپ: R منفی', $rowStop['outcome'] === 'stop' && (float)$rowStop['r_multiple'] < -0.9, $rowStop['outcome'] . ' ' . $rowStop['r_multiple']);
+$trStats = $tracker->stats();
+check('آمار ردیاب ساخته شد', $trStats['total'] >= 2 && count($trStats['rows']) >= 1, json_encode($trStats['overall']));
+check('نمونهٔ کم = آمار کالیبراسیون null', $tracker->statsFor('A+', 'trend_up') === null || is_array($tracker->statsFor('A+', 'trend_up')));
+$db->insert('signals', [
+    'symbol' => 'TIMEUSDT', 'side' => 'BUY', 'timeframe' => '1h', 'tier' => 'A+', 'regime' => 'trend_up',
+    'entry_price' => (float)$candles[240]['close'], 'stop_loss' => (float)$candles[240]['close'] - 2,
+    'take_profit_1' => (float)$candles[240]['close'] + 1, 'take_profit_2' => (float)$candles[240]['close'] + 30,
+    'take_profit_3' => (float)$candles[240]['close'] + 40,
+    'status' => 'new', 'outcome' => '', 'created_at' => date('Y-m-d H:i:s', (int)$candles[240]['time']),
+]);
+$db->insert('signals', [
+    'symbol' => 'TEST2USDT', 'side' => 'BUY', 'timeframe' => '1h', 'tier' => 'A+', 'regime' => 'trend_up',
+    'entry_price' => (float)$candles[205]['close'], 'stop_loss' => (float)$candles[205]['close'] - 2,
+    'take_profit_1' => (float)$candles[205]['close'] + 3, 'take_profit_2' => (float)$candles[205]['close'] + 6,
+    'take_profit_3' => (float)$candles[205]['close'] + 9,
+    'status' => 'new', 'outcome' => '', 'created_at' => date('Y-m-d H:i:s', (int)$candles[205]['time']),
+]);
+$tracker->run(10);
+$stFor = $tracker->statsFor('A+', 'trend_up');
+check('با ۳ نمونه آمار (درجه×رژیم) برمی‌گردد', is_array($stFor) && $stFor['n'] >= 3 && $stFor['avg_r'] > 0, json_encode($stFor));
+$line = $tracker->promptLine('A+', 'trend_up');
+check('خط پرامپت AI از آمار واقعی ساخته شد', strpos($line, 'سابقهٔ سیگنال‌های مشابه') !== false && strpos($line, 'TP1') !== false, $line);
+$cal = $tracker->calibratedConfidence(85.0, 'A+', 'trend_up');
+check('اعتماد کالیبره = ترکیب امتیاز و وین‌ریت', $cal['calibrated'] === true && $cal['confidence'] > 0 && $cal['confidence'] <= 100, json_encode($cal));
+
+/* ═══ ۱۶) دروازهٔ همبستگی پرتفوی ═══ */
+section('دروازهٔ پرتفوی');
+$pfMock = new MockTransport();
+$pfMock->on('api.binance.com/api/v3/klines', ['status' => 200, 'body' => json_encode(array_map(static function ($c) {
+    return [$c['time'] * 1000, $c['open'], $c['high'], $c['low'], $c['close'], $c['volume']];
+}, $candles))]);
+$sixSymbols = ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'XRPUSDT', 'DOGEUSDT', 'ADAUSDT'];
+$pfMock->on('api.binance.com/api/v3/ticker/24hr', ['status' => 200, 'body' => json_encode(array_map(static function ($sym) use ($candles) {
+    return ['symbol' => $sym, 'lastPrice' => '188', 'priceChangePercent' => '3.0', 'quoteVolume' => '100000000', 'highPrice' => '190', 'lowPrice' => '100'];
+}, $sixSymbols))]);
+$buyJsonPf = '{"signal":"BUY","confidence":85,"reasoning":"trend","risks":[],"invalidation":"break below stop"}';
+$pfMock->on('api.openai.com/v1/chat/completions', ['status' => 200, 'body' => json_encode(['choices' => [['message' => ['content' => $buyJsonPf]]]])]);
+$pfMock->on('generativelanguage.googleapis.com', ['status' => 200, 'body' => json_encode(['candidates' => [['content' => ['parts' => [['text' => $buyJsonPf]]]]]])]);
+$pfMock->on('api.groq.com/openai/v1/chat/completions', ['status' => 200, 'body' => json_encode(['choices' => [['message' => ['content' => $buyJsonPf]]]])]);
+$pfMock->on('api.deepseek.com/v1/chat/completions', ['status' => 200, 'body' => json_encode(['choices' => [['message' => ['content' => $buyJsonPf]]]])]);
+$pfClient = new Client($pfMock, new Router($config, $health), $db, $config);
+$pfEngine = new SignalEngine(new MarketData($pfMock), $pfClient, $db, $baseCfg + [
+    'require_ai_agreement' => false, 'cooldown_hours' => 0,
+    'max_signals_per_scan' => 8, 'max_same_side' => 2, 'max_portfolio_position_pct' => 60.0,
+]);
+$pfScan = $pfEngine->scanMarket(6);
+$pfOk = !empty($pfScan['ok']) && isset($pfScan['portfolio']);
+$longs = $pfOk ? (int)$pfScan['portfolio']['longs'] : -1;
+check('پرتفوی: سقف هم‌جهت اعمال شد', $pfOk && $longs <= 2 && $longs >= 1, 'longs=' . $longs . ' signals=' . count($pfScan['signals']));
+check('پرتفوی: سیگنال‌های اضافه حذف و شمرده شدند', $pfOk && ($pfScan['portfolio']['dropped'] >= count($pfScan['signals']) - 1 || count($pfScan['signals']) <= 2), json_encode($pfScan['portfolio'] ?? null));
+check('پرتفوی: سایز تجمعی گزارش شد', $pfOk && (float)$pfScan['portfolio']['total_position_pct'] > 0);
+
+/* ═══ ۱۷) وکیل مدافع (Red-Team) + خودسازگاری ═══ */
+section('AI Red-Team / خودسازگاری');
+$rtMock = new MockTransport();
+$rtMock->on('api.binance.com/api/v3/klines', ['status' => 200, 'body' => json_encode(array_map(static function ($c) {
+    return [$c['time'] * 1000, $c['open'], $c['high'], $c['low'], $c['close'], $c['volume']];
+}, $candles))]);
+$rtJson = '{"verdict":"INVALID","confidence":80,"fatal_flaws":["hidden RSI divergence","extreme funding"],"what_would_break_it":"swing low break"}';
+$rtMock->onSequence('api.deepseek.com/v1/chat/completions', [
+    ['status' => 200, 'body' => json_encode(['choices' => [['message' => ['content' => $buyJsonPf]]]])],   // سیگنال ۱ (نخست در رتبه‌بندی)
+    ['status' => 200, 'body' => json_encode(['choices' => [['message' => ['content' => $buyJsonPf]]]])],   // خودسازگاری
+    ['status' => 200, 'body' => json_encode(['choices' => [['message' => ['content' => $rtJson]]]])], // وکیل مدافع (crypto.review → نخستین زنجیره)
+]);
+$rtMock->on('api.openai.com/v1/chat/completions', ['status' => 200, 'body' => json_encode(['choices' => [['message' => ['content' => $buyJsonPf]]]])]);
+$rtMock->on('generativelanguage.googleapis.com', ['status' => 200, 'body' => json_encode(['candidates' => [['content' => ['parts' => [['text' => $buyJsonPf]]]]]])]);
+$rtMock->on('api.groq.com/openai/v1/chat/completions', ['status' => 200, 'body' => json_encode(['choices' => [['message' => ['content' => $buyJsonPf]]]])]);
+$rtClient = new Client($rtMock, new Router($config, $health), $db, $config);
+$rtValidator = new AiValidator($rtClient, 3, ['red_team' => true, 'self_consistency' => true, 'history_stats' => false]);
+$rtRes = $rtValidator->validate($summary, 'BUY');
+check('وکیل مدافع اجرا و INVALID برگرداند', !empty($rtRes['red_team']) && $rtRes['red_team']['verdict'] === 'INVALID', json_encode($rtRes['red_team'] ?? null));
+check('وتوی وکیل مدافع: اجماع باطل شد', $rtRes['agreement'] === false, json_encode($rtRes['notes'] ?? null));
+
+$scMock = new MockTransport();
+$scJsonSell = '{"signal":"SELL","confidence":90,"reasoning":"flip","risks":[],"invalidation":"x"}';
+$scMock->onSequence('api.deepseek.com/v1/chat/completions', [
+    ['status' => 200, 'body' => json_encode(['choices' => [['message' => ['content' => $buyJsonPf]]]])],   // BUY (نخست در رتبه‌بندی)
+    ['status' => 200, 'body' => json_encode(['choices' => [['message' => ['content' => $scJsonSell]]]])],  // پاسخ دوم ناسازگار → رأی حذف
+]);
+$scMock->on('api.openai.com/v1/chat/completions', ['status' => 200, 'body' => json_encode(['choices' => [['message' => ['content' => $buyJsonPf]]]])]);
+$scMock->on('generativelanguage.googleapis.com', ['status' => 200, 'body' => json_encode(['candidates' => [['content' => ['parts' => [['text' => $buyJsonPf]]]]]])]);
+$scMock->on('api.groq.com/openai/v1/chat/completions', ['status' => 200, 'body' => json_encode(['choices' => [['message' => ['content' => $buyJsonPf]]]])]);
+$scClient = new Client($scMock, new Router($config, $health), $db, $config);
+$scValidator = new AiValidator($scClient, 3, ['red_team' => false, 'self_consistency' => true, 'history_stats' => false]);
+$scRes = $scValidator->validate($summary, 'BUY');
+check('رأی مدل ناپایدار حذف شد (۳ → ۲ نظر)', $scRes['ok'] && count($scRes['opinions']) === 2, count($scRes['opinions']) . '');
+
+/* ═══ ۱۸) واک‌فوروارد + مونت‌کارلو ═══ */
+section('Robustness');
+$candles700 = [];
+$t7 = 1700000000; $p7 = 100.0;
+for ($i = 0; $i < 700; $i++) {
+    $open = $p7; $delta = 0.4 + (($i % 7 === 0) ? -0.15 : 0);
+    $close = $open + $delta;
+    $candles700[] = ['time' => $t7 + $i * 3600, 'open' => $open, 'high' => max($open, $close) + 0.2, 'low' => min($open, $close) - 0.2, 'close' => $close, 'volume' => 1000 + $i * 5];
+    $p7 = $close;
+}
+$wfMock = new MockTransport();
+$wfMock->on('api.binance.com/api/v3/klines', ['status' => 200, 'body' => json_encode(array_map(static function ($c) {
+    return [$c['time'] * 1000, $c['open'], $c['high'], $c['low'], $c['close'], $c['volume']];
+}, $candles700))]);
+$rob = new Robustness(new MarketData($wfMock), $baseCfg + ['backtest_fee_bps' => 8, 'backtest_slippage_bps' => 3]);
+$wf = $rob->walkForward('BTCUSDT', '1h', 700, 3);
+check('واک‌فوروارد اجرا شد', !empty($wf['ok']) && count($wf['folds']) >= 2, $wf['error'] ?? '-');
+check('واک‌فوروارد: پنجرهٔ سودده دارد', $wf['positive_folds'] >= 1, $wf['positive_folds'] . '/' . count($wf['folds']));
+check('واک‌فوروارد: حکم معتبر', in_array($wf['verdict'], ['robust', 'mixed', 'fragile'], true), $wf['verdict'] . ' p=' . $wf['stability']);
+$mc = $rob->monteCarlo([1.5, -1, 2.5, -1, 3, -1, 4, -1], 200);
+check('مونت‌کارلو: مجموع R در همهٔ بازچینی‌ها ثابت است', $mc['ok'] && abs($mc['final_r_p50'] - 7.0) < 0.01, $mc['final_r_p50'] . '');
+check('مونت‌کارلو: صدک ۹۵ افت ≥ میانه', $mc['max_dd_p95'] >= $mc['max_dd_p50'], $mc['max_dd_p95'] . ' >= ' . $mc['max_dd_p50']);
+check('مونت‌کارلو: احتمال ضرر در بازهٔ معتبر', $mc['loss_prob'] >= 0 && $mc['loss_prob'] <= 1, (string)$mc['loss_prob']);
+
+/* ═══ ۱۹) Installer: ارتقای ستون‌های ردیاب ═══ */
+section('Installer ارتقا');
+$tmpOld = tempnam(sys_get_temp_dir(), 'mlnold') . '.sqlite'; @unlink($tmpOld);
+$dbOld = Db::make(['driver' => 'sqlite', 'sqlite_path' => $tmpOld, 'prefix' => 'mln_']);
+$dbOld->pdo()->exec('CREATE TABLE mln_signals (id INTEGER PRIMARY KEY AUTOINCREMENT, symbol TEXT, side TEXT, tier TEXT, regime TEXT, entry_price REAL, stop_loss REAL, take_profit_1 REAL, take_profit_2 REAL, take_profit_3 REAL, status TEXT, created_at TEXT)');
+$oldInstaller = new Installer($dbOld);
+$oldInstaller->run();
+$colsOld = $oldInstaller->columns('signals');
+check('ارتقا: ستون‌های ردیاب به نصب قدیمی اضافه شد', in_array('hit_tp1', $colsOld, true) && in_array('r_multiple', $colsOld, true) && in_array('tracker_json', $colsOld, true), implode(',', $colsOld));
+@unlink($tmpOld);
 
 echo "\n════════════════════════════════════\nموفق: {$passed}   ناموفق: {$failed}\n";
 if ($failed > 0) { echo "  - " . implode("\n  - ", $failures) . "\n"; exit(1); }

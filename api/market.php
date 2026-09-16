@@ -92,10 +92,21 @@ try {
     $btc = null;
 }
 
+// شاخص ترس و طمع — لایهٔ سنتیمنت کلان (نسخهٔ ۵٫۱)
+$fearGreed = null;
+try {
+    if (!empty($engineCfg['enable_fear_greed'])) {
+        $fearGreed = $market->fearGreed();
+    }
+} catch (Throwable $e) {
+    $fearGreed = null;
+}
+
 m_json([
     'ok' => true,
     'breadth' => $breadth,
     'btc' => $btc,
+    'fear_greed' => $fearGreed,
     'gainers' => array_map(static function ($t) {
         return ['symbol' => $t['symbol'], 'base' => $t['base'], 'price' => $t['last'], 'change_pct' => $t['change_pct'], 'quote_volume' => $t['quote_volume']];
     }, $gainers),

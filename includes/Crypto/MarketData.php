@@ -87,11 +87,15 @@ final class MarketData
     }
 
     /**
-     * کندل‌های یک جفت‌ارز.
+     * کندل‌های یک جفت‌ارز — فقط کندل‌های «بسته‌شده».
      *
-     * @return array{ok:bool,candles:array<array{time:int,open:float,high:float,low:float,close:float,volume:float}>,source:string,error:?string}
+     * نسخهٔ ۵٫۱: کندل آخرِ در حال شکل‌گیری حذف می‌شود مگر صراحتاً خواسته شده
+     * باشد؛ محاسبهٔ اندیکاتور روی کندلِ باز، منبع اصلی سیگنال کاذب است.
+     *
+     * @param bool $includeUnclosed اگر true باشد کندل جاریِ ناقص هم برمی‌گردد
+     * @return array{ok:bool,candles:array<array{time:int,open:float,high:float,low:float,close:float,volume:float}>,source:string,error:?string,closed_only:bool,dropped_unclosed:int}
      */
-    public function candles(string $symbol, string $interval = '1h', int $limit = 200): array
+    public function candles(string $symbol, string $interval = '1h', int $limit = 200, bool $includeUnclosed = false): array
     {
         $allowed = ['5m', '15m', '30m', '1h', '2h', '4h', '6h', '12h', '1d', '1w'];
         if (!in_array($interval, $allowed, true)) {
@@ -117,10 +121,98 @@ final class MarketData
                 ];
             }
             if ($candles) {
-                return ['ok' => true, 'candles' => $candles, 'source' => 'binance', 'error' => null];
+                // حذف کندلِ در حال شکل‌گیری — تحلیل فقط روی دادهٔ قطعی
+                $dropped = 0;
+                if (!$includeUnclosed) {
+                    $sec = self::intervalSeconds($interval);
+                    $last = &$candles[count($candles) - 1];
+                    if ((int)$last['time'] + $sec > time()) {
+                        array_pop($candles);
+                        $dropped = 1;
+                        unset($last);
+                    }
+                }
+                if ($candles) {
+                    return [
+                        'ok' => true, 'candles' => $candles, 'source' => 'binance',
+                        'error' => null, 'closed_only' => !$includeUnclosed, 'dropped_unclosed' => $dropped,
+                    ];
+                }
             }
         }
-        return ['ok' => false, 'candles' => [], 'source' => 'none', 'error' => $res['error'] ?? 'داده کندل دریافت نشد'];
+        return ['ok' => false, 'candles' => [], 'source' => 'none',
+            'error' => $res['error'] ?? 'داده کندل دریافت نشد', 'closed_only' => !$includeUnclosed, 'dropped_unclosed' => 0];
+    }
+
+    /** طول هر تایم‌فریم بر حسب ثانیه. */
+    public static function intervalSeconds(string $interval): int
+    {
+        $map = [
+            '5m' => 300, '15m' => 900, '30m' => 1800, '1h' => 3600, '2h' => 7200,
+            '4h' => 14400, '6h' => 21600, '12h' => 43200, '1d' => 86400, '1w' => 604800,
+        ];
+        return $map[$interval] ?? 3600;
+    }
+
+    /* ── داده‌های مشتقات و سنتیمنت (نسخهٔ ۵٫۱) ─────────────────────────── */
+
+    /**
+     * نرخ فاندینگ همهٔ نمادها (Binance Futures) — نقشهٔ symbol => فاندینگ ۸ساعته (٪).
+     * فاندینگِ افراطی = شلوغی یک‌طرفه = خطر اسکوییز.
+     * @return array<string,float>
+     */
+    public function fundingRates(): array
+    {
+        $out = [];
+        $res = $this->cached('https://fapi.binance.com/fapi/v1/premiumIndex', max(60, (int)($this->cfg['ticker_cache_ttl'] ?? 45)));
+        if ($res['status'] === 200 && is_array($res['body_parsed'])) {
+            foreach ($res['body_parsed'] as $row) {
+                $symbol = (string)($row['symbol'] ?? '');
+                $rate = (float)($row['lastFundingRate'] ?? 0);
+                if ($symbol !== '' && $rate !== 0.0) {
+                    $out[$symbol] = round($rate * 100, 5); // کسر → درصد
+                }
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * روند اوپن اینترست ۲۴ ساعتهٔ یک نماد (٪).
+     * OI صعودی + قیمت صعودی = روند سالم؛ OI صعودی + قیمت نزولی = فشار فروش واقعی.
+     */
+    public function openInterestTrend(string $symbol): ?float
+    {
+        $url = 'https://fapi.binance.com/futures/data/openInterestHist?symbol=' . urlencode($symbol)
+            . '&period=1h&limit=25';
+        $res = $this->cached($url, max(120, (int)($this->cfg['ticker_cache_ttl'] ?? 45) * 2));
+        if ($res['status'] === 200 && is_array($res['body_parsed']) && count($res['body_parsed']) >= 12) {
+            $first = (float)($res['body_parsed'][0]['sumOpenInterest'] ?? 0);
+            $last = (float)($res['body_parsed'][count($res['body_parsed']) - 1]['sumOpenInterest'] ?? 0);
+            if ($first > 0) {
+                return round(($last / $first - 1) * 100, 2);
+            }
+        }
+        return null;
+    }
+
+    /**
+     * شاخص ترس و طمع (alternative.me) — ۰ (ترس شدید) تا ۱۰۰ (طمع شدید).
+     * @return array{value:int,label:string}|null
+     */
+    public function fearGreed(): ?array
+    {
+        $res = $this->cached('https://api.alternative.me/fng/?limit=1', 600);
+        if ($res['status'] === 200 && is_array($res['body_parsed'])) {
+            $row = $res['body_parsed']['data'][0] ?? null;
+            if (is_array($row) && isset($row['value'])) {
+                return [
+                    'value' => (int)$row['value'],
+                    'label' => (string)($row['value_classification'] ?? ''),
+                ];
+            }
+        }
+        return null;
     }
 
     /**

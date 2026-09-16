@@ -409,6 +409,14 @@
         if (reqAi) { trading.require_ai_agreement = reqAi.checked; }
         if (reqMtf) { trading.require_mtf = reqMtf.checked; }
         if (btcFilter) { trading.btc_filter = btcFilter.checked; }
+        const bools = {
+            pr_red_team: 'red_team', pr_self_consistency: 'self_consistency', pr_ai_history: 'ai_history_stats',
+            pr_funding: 'enable_funding', pr_oi: 'enable_open_interest', pr_fg: 'enable_fear_greed',
+        };
+        Object.keys(bools).forEach(function (id) {
+            const node = el(id);
+            if (node) { trading[bools[id]] = node.checked; }
+        });
         try {
             await M.api('api/settings_save.php', { trading: trading });
             M.toast('پارامترهای موتور سیگنال و ریسک ذخیره شد', 'ok');
@@ -431,6 +439,24 @@
             await M.api('api/settings_save.php', { security: { password: value } });
             el('new_pass').value = '';
             M.toast('رمز تغییر کرد. برای اطمینان دوباره وارد شوید.', 'ok', 6000);
+        } catch (err) {
+            M.toast(err.message, 'bad', 6000);
+        } finally {
+            setBusy(btn, false);
+        }
+    }
+
+    async function saveCronKey() {
+        const key = (el('cron_key') && el('cron_key').value ? el('cron_key').value : '').trim();
+        if (key !== '' && !/^[A-Za-z0-9_-]{16,64}$/.test(key)) {
+            M.toast('کلید کران باید ۱۶ تا ۶۴ نویسهٔ حرف/رقم/خط‌تیره باشد.', 'bad', 6000);
+            return;
+        }
+        const btn = el('btn_cron_save');
+        setBusy(btn, true, 'در حال ذخیره…');
+        try {
+            await M.api('api/settings_save.php', { security: { cron_key: key } });
+            M.toast(key ? 'کلید کران ذخیره شد — کران ساعتی را روی api/tracker.php تنظیم کنید.' : 'کلید کران حذف شد — کران غیرفعال است.', 'ok', 6500);
         } catch (err) {
             M.toast(err.message, 'bad', 6000);
         } finally {
@@ -476,6 +502,8 @@
         el('btn_route_save').addEventListener('click', saveRouting);
         el('btn_pricing_save').addEventListener('click', savePricing);
         el('btn_pass_save').addEventListener('click', savePassword);
+        const cronBtn = el('btn_cron_save');
+        if (cronBtn) { cronBtn.addEventListener('click', saveCronKey); }
         el('btn_health_all').addEventListener('click', runFullHealth);
 
         M.$$('.provider-card [data-action="test"]').forEach((btn) => {

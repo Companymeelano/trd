@@ -67,6 +67,7 @@ final class Context
             'obv' => Indicators::obv($closes, $volumes),
             'vwap' => Indicators::vwap($highs, $lows, $closes, $volumes, 20),
             'roc24' => Indicators::roc($closes, 24),
+            'er' => Indicators::kaufmanER($closes, 10),
         ];
     }
 
@@ -144,6 +145,24 @@ final class Context
             'swing_low' => Indicators::swingLow(array_slice($s['low'], 0, $i + 1), 20),
             'swing_high' => Indicators::swingHigh(array_slice($s['high'], 0, $i + 1), 20),
             'min_quote_volume' => (float)($cfg['min_quote_volume'] ?? 5000000),
+
+            /* ── فیلدهای نسخهٔ ۵٫۱ (دقت پیشرفته) ───────────────────── */
+            'er' => Indicators::at($s['er'], $i) !== null ? round((float)Indicators::at($s['er'], $i), 3) : null,
+            'session' => Indicators::sessionOf((int)($s['time'][$i] ?? time())),
+            'fvg' => Indicators::fvgAt($s['high'], $s['low'], $i),
+            'poc' => Indicators::poc($s['high'], $s['low'], $s['close'], $s['volume'], $i),
+            'div_rsi' => Indicators::divergence(array_slice($s['close'], 0, $i + 1), $s['rsi'], $i),
+            'div_obv' => Indicators::divergence(array_slice($s['close'], 0, $i + 1), $s['obv'], $i),
+            'sweep' => Indicators::liquiditySweep(
+                $s['high'], $s['low'], $s['close'], $s['volume'], $i,
+                Indicators::swingLow(array_slice($s['low'], 0, $i + 1), 20),
+                Indicators::swingHigh(array_slice($s['high'], 0, $i + 1), 20)
+            ),
+            // داده‌های بیرونی — با SignalEngine تزریق می‌شوند (در بک‌تست null)
+            'rs_btc' => null,
+            'funding_pct' => null,
+            'oi_trend_pct' => null,
+            'fear_greed' => null,
         ];
     }
 

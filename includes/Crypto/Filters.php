@@ -2,11 +2,16 @@
 namespace Meelano\Crypto;
 
 /**
- * زنجیرهٔ فیلترهای سخت‌گیرانهٔ کریپتو — نسخهٔ ۵ (هم‌گرایی وزن‌دار).
+ * زنجیرهٔ فیلترهای سخت‌گیرانهٔ کریپتو — نسخهٔ ۵٫۱ (هم‌گرایی وزن‌دار، ۲۵ شاهد).
  *
- * فلسفه: به‌جای یک مدل تنها، پانزده شاهد مستقل (روند، مومنتوم، حجم،
- * نوسان، ساختار، جریان سرمایه، آنتی‌منیپولیشن و قدرت روند) رأی وزنی می‌دهند
+ * فلسفه: به‌جای یک مدل تنها، ۲۵ شاهد مستقل در پنج لایهٔ اطلاعاتی رأی وزنی می‌دهند
  * و وزن هر شاهد به «رژیم بازار» وابسته است:
+ *   ۱) تکنیکال کلاسیک (روند/مومنتوم/حجم/نوسان)
+ *   ۲) ساختار بازار (Supertrend، ساختار، سویپ نقدینگی، FVG، POC)
+ *   ۳) جریان سرمایه (OBV، واگرایی، حجم نسبی)
+ *   ۴) مشتقات (فاندینگ، اوپن اینترست)
+ *   ۵) کلان (قدرت نسبی به BTC، ترس و طمع، سشن)
+ * فیلترهای دادهٔ خارجی در نبود داده «خنثیِ عبوری» می‌مانند (هرگز مسدود نمی‌کنند):
  *   - در روند قوی، فیلترهای روندی (EMA، Supertrend، میکروترند) وزن بیشتری دارند.
  *   - در بازار رِنج، فیلترهای بازگشت به میانگین (بولینگر، استوکستیک، RSI) سنگین‌ترند.
  *   - در نوسان وحشی، بار آستانه‌ها بالاتر می‌رود.
@@ -222,6 +227,185 @@ final class Filters
             ($microBuy || $microSell) ? 0.8 : 0.3, $microBuy ? 'BUY' : ($microSell ? 'SELL' : 'NEUTRAL'), $wTrend,
             'EMA9 ' . ($ema9 >= $ema21 ? '>' : '<') . ' EMA21 · قیمت ' . ($price >= $ema9 ? 'بالای' : 'زیر') . ' EMA9');
         $vote($f, $wTrend);
+        $filters[] = $f;
+
+        /* ═══ فیلترهای نسخهٔ ۵٫۱ — لایه‌های اطلاعاتی جدید ═════════════ */
+
+        /* ── ۱۶) قدرت نسبی به بیت‌کوین: سوخت واقعی آلت‌کوین ─────────── */
+        $rsBtc = $ctx['rs_btc'] ?? null;
+        if ($rsBtc !== null && (float)$rsBtc !== 0.0) {
+            $rsB = (float)$rsBtc;
+            $rsBuy = $rsB >= 1.0;
+            $rsSell = $rsB <= -1.0;
+            $f = $this->f('rs_btc', 'قدرت نسبی به بیت‌کوین', true,
+                $rsBuy ? 0.9 : ($rsSell ? 0.85 : 0.45), $rsBuy ? 'BUY' : ($rsSell ? 'SELL' : 'NEUTRAL'), 1.0,
+                'RS٪ ۲۰ کندل: ' . $rsB . '٪ (' . ($rsB > 0 ? 'قوی‌تر از BTC' : 'ضعیف‌تر از BTC') . ')');
+            $vote($f, 1.0);
+        } else {
+            $f = $this->f('rs_btc', 'قدرت نسبی به بیت‌کوین', true, 0.5, 'NEUTRAL', 1.0, 'دادهٔ هم‌تراز BTC موجود نیست.');
+        }
+        $filters[] = $f;
+
+        /* ── ۱۷) واگرایی قیمت/اسیلاتور — قدیمی‌ترین هشدار چرخش ─────── */
+        $divR = $ctx['div_rsi'] ?? ['type' => null];
+        $divO = $ctx['div_obv'] ?? ['type' => null];
+        $divType = null;
+        $divStrength = 0.0;
+        if (($divR['type'] ?? null) !== null) {
+            $divType = $divR['type'];
+            $divStrength = (float)($divR['strength'] ?? 0.5);
+        }
+        if (($divO['type'] ?? null) !== null && ($divO['type'] ?? '') === $divType) {
+            $divStrength = min(1.0, $divStrength + 0.2); // تأیید دوگانه RSI+OBV
+        } elseif (($divO['type'] ?? null) !== null && $divType === null) {
+            $divType = $divO['type'];
+            $divStrength = (float)($divO['strength'] ?? 0.4);
+        }
+        if ($divType !== null) {
+            $hasRsi = ($divR['type'] ?? null) !== null;
+            $hasObv = ($divO['type'] ?? null) !== null;
+            $divDetail = 'واگرایی ' . ($divType === 'bull' ? 'صعودی' : 'نزولی')
+                . ($hasRsi ? ' + RSI' : '') . ($hasObv ? ' + OBV' : '')
+                . ' — قدرت: ' . round($divStrength * 100) . '٪';
+            $f = $this->f('divergence', 'واگرایی قیمت/اسیلاتور', true,
+                0.55 + $divStrength * 0.4, $divType === 'bull' ? 'BUY' : 'SELL', 1.2, $divDetail);
+            $vote($f, 1.2);
+        } else {
+            $f = $this->f('divergence', 'واگرایی قیمت/اسیلاتور', true, 0.5, 'NEUTRAL', 1.2, 'واگرایی فعالی دیده نشد.');
+        }
+        $filters[] = $f;
+
+        /* ── ۱۸) شکار نقدینگی (Liquidity Sweep) — مُهر ورود نهادی ──── */
+        $sweep = $ctx['sweep'] ?? null;
+        if (is_array($sweep)) {
+            $swBuy = $sweep['side'] === 'bull';
+            $f = $this->f('sweep', 'شکار نقدینگی (سویپ استاپ)', true,
+                0.95, $swBuy ? 'BUY' : 'SELL', 1.3,
+                'سویپ ' . ($swBuy ? 'کف' : 'سقف') . ' ' . $this->sci((float)$sweep['level'])
+                . ' با حجم ' . $sweep['vol_ratio'] . '× — بازگشت به داخل محدوده');
+            $vote($f, 1.3);
+        } else {
+            $f = $this->f('sweep', 'شکار نقدینگی (سویپ استاپ)', true, 0.5, 'NEUTRAL', 1.3, 'الگوی سویپ در کندل جاری نیست.');
+        }
+        $filters[] = $f;
+
+        /* ── ۱۹) نسبت کارایی کافمان — تأیید رژیم ────────────────────── */
+        $er = $ctx['er'] ?? null;
+        if ($er !== null) {
+            if ($isTrend) {
+                $erOk = (float)$er >= 0.30;
+                $erDetail = 'ER=' . round((float)$er, 2) . ' — ' . ($erOk ? 'حرکت کارآمد برای روند' : 'حرکت پرنویز برای معاملهٔ روندی');
+            } else {
+                $erOk = (float)$er <= 0.45;
+                $erDetail = 'ER=' . round((float)$er, 2) . ' — ' . ($erOk ? 'نویز مناسب بازگشت به میانگین' : 'حرکت جهت‌دار بیش از حد رِنج');
+            }
+            $f = $this->f('efficiency', 'نسبت کارایی کافمان (ER)', $erOk, $erOk ? 0.8 : 0.25, 'NEUTRAL', 0.8, $erDetail);
+        } else {
+            $f = $this->f('efficiency', 'نسبت کارایی کافمان (ER)', true, 0.5, 'NEUTRAL', 0.8, 'دادهٔ کافی نیست.');
+        }
+        $filters[] = $f;
+
+        /* ── ۲۰) گپ ارزش منصفانه (FVG) — لنگرگاه ورود حدی ──────────── */
+        $fvg = $ctx['fvg'] ?? null;
+        $atrVal = max(1e-9, $atrPct / 100 * $price);
+        if (is_array($fvg) && $fvg['size_pct'] >= 0.15) {
+            $near = $fvg['side'] === 'bull'
+                ? ($price - $fvg['high']) <= $atrVal * 1.5
+                : ($fvg['low'] - $price) <= $atrVal * 1.5;
+            $f = $this->f('fvg', 'گپ ارزش منصفانه (FVG)', true,
+                $near ? 0.8 : 0.55, $fvg['side'] === 'bull' ? 'BUY' : 'SELL', 0.9,
+                'FVG ' . ($fvg['side'] === 'bull' ? 'صعودی' : 'نزولی') . ' — میانه: ' . $this->sci($fvg['mid']) . ' (' . $fvg['size_pct'] . '٪)');
+            $vote($f, 0.9);
+        } else {
+            $f = $this->f('fvg', 'گپ ارزش منصفانه (FVG)', true, 0.5, 'NEUTRAL', 0.9, 'گپ فعال نزدیک قیمت نیست.');
+        }
+        $filters[] = $f;
+
+        /* ── ۲۱) سشن معاملاتی — نقدینگی سشن‌ها متفاوت است ──────────── */
+        $session = (string)($ctx['session'] ?? '');
+        $isWeekend = $session === 'weekend';
+        $sessionLabels = [
+            'asia' => 'آسیا', 'europe' => 'اروپا', 'america' => 'آمریکا',
+            'overlap' => 'هم‌پوشانی اروپا/آمریکا', 'asia_europe' => 'هم‌پوشانی آسیا/اروپا',
+            'weekend' => 'آخر هفته', 'off' => 'خارج از سشن‌های اصلی',
+        ];
+        $sessionOk = !$isWeekend || $volRatio >= 1.5; // آخر هفته فقط با حجم واقعی
+        $f = $this->f('session', 'سشن معاملاتی', $sessionOk,
+            $isWeekend ? 0.35 : ($session === 'overlap' ? 0.8 : 0.65), 'NEUTRAL', 0.6,
+            'سشن: ' . ($sessionLabels[$session] ?? $session) . ($isWeekend ? ' — نقدینگی کم؛ نیازمند تأیید حجم' : ''));
+        $filters[] = $f;
+
+        /* ── ۲۲) فاندینگ — شلوغی پوزیشن‌های اهرمی ────────────────────── */
+        $funding = $ctx['funding_pct'] ?? null;
+        if ($funding !== null) {
+            $fr = (float)$funding;
+            $crowdLongs = $fr >= 0.05;   // فاندینگ افراطی مثبت = اسکوییز نزولی محتمل
+            $crowdShorts = $fr <= -0.05; // فاندینگ افراطی منفی = اسکوییز صعودی محتمل
+            $f = $this->f('funding', 'فاندینگ (شلوغی اهرمی)', true,
+                $crowdLongs ? 0.75 : ($crowdShorts ? 0.75 : 0.6),
+                $crowdLongs ? 'SELL' : ($crowdShorts ? 'BUY' : 'NEUTRAL'), 0.8,
+                'فاندینگ ۸ساعته: ' . $fr . '٪' . ($crowdLongs ? ' — لانگ‌ها شلوغ (خطر اسکوییز)' : ($crowdShorts ? ' — شورت‌ها شلوغ (خطر اسکوییز)' : ' — نرمال')));
+            $vote($f, 0.8);
+        } else {
+            $f = $this->f('funding', 'فاندینگ (شلوغی اهرمی)', true, 0.5, 'NEUTRAL', 0.8, 'دادهٔ فاندینگ در دسترس نیست.');
+        }
+        $filters[] = $f;
+
+        /* ── ۲۳) اوپن اینترست — سوخت واقعی حرکت ──────────────────────── */
+        $oi = $ctx['oi_trend_pct'] ?? null;
+        if ($oi !== null) {
+            $oiT = (float)$oi;
+            $oiExit = $oiT <= -4.0; // خروج جریان از بازار
+            if ($oiT >= 2.0) {
+                $oiSide = $change24 > 0 ? 'BUY' : 'SELL'; // ورود پول + جهت قیمت = روند سالم
+                $oiDetail = 'OI +' . $oiT . '٪ هم‌جهت با قیمت — روند پشتیبان';
+                $oiScore = 0.8;
+            } elseif ($oiExit) {
+                $oiSide = 'NEUTRAL';
+                $oiDetail = 'OI ' . $oiT . '٪ — خروج جریان؛ حرکت‌ها بی‌سوخت‌اند';
+                $oiScore = 0.3;
+            } else {
+                $oiSide = 'NEUTRAL';
+                $oiDetail = 'OI ' . $oiT . '٪ — خنثی';
+                $oiScore = 0.55;
+            }
+            $f = $this->f('open_interest', 'اوپن اینترست (جریان پوزیشن‌ها)', !$oiExit, $oiScore, $oiSide, 0.8, $oiDetail);
+            if ($oiSide !== 'NEUTRAL') { $vote($f, 0.8); }
+        } else {
+            $f = $this->f('open_interest', 'اوپن اینترست (جریان پوزیشن‌ها)', true, 0.5, 'NEUTRAL', 0.8, 'دادهٔ OI در دسترس نیست.');
+        }
+        $filters[] = $f;
+
+        /* ── ۲۴) ترس و طمع — خلاف‌رفتن با هیجان جمع ──────────────────── */
+        $fg = $ctx['fear_greed'] ?? null;
+        if (is_array($fg) && isset($fg['value'])) {
+            $fgv = (int)$fg['value'];
+            $fgBuy = $fgv <= 25;   // ترس شدید = فرصت خلاف‌گردش
+            $fgSell = $fgv >= 75;  // طمع شدید = احتیاط
+            $f = $this->f('fear_greed', 'ترس و طمع (خلاف‌گردش)', true,
+                ($fgBuy || $fgSell) ? 0.7 : 0.6, $fgBuy ? 'BUY' : ($fgSell ? 'SELL' : 'NEUTRAL'), 0.6,
+                'شاخص: ' . $fgv . '/۱۰۰ (' . ($fg['label'] ?? '') . ')' . ($fgBuy ? ' — ترس شدید' : ($fgSell ? ' — طمع شدید' : '')));
+            if ($fgBuy || $fgSell) { $vote($f, 0.6); }
+        } else {
+            $f = $this->f('fear_greed', 'ترس و طمع (خلاف‌گردش)', true, 0.5, 'NEUTRAL', 0.6, 'شاخص در دسترس نیست.');
+        }
+        $filters[] = $f;
+
+        /* ── ۲۵) پروفایل حجم (POC) — آهن‌ربای قیمت ────────────────────── */
+        $poc = $ctx['poc'] ?? null;
+        if (is_array($poc) && (float)$poc['poc'] > 0) {
+            $pocDist = (($price - (float)$poc['poc']) / (float)$poc['poc']) * 100;
+            $pocBuy = $pocDist <= -1.5;  // قیمت زیر گره حجم = جذب به سمت بالا
+            $pocSell = $pocDist >= 1.5;  // قیمت بالای گره حجم = جذب به سمت پایین
+            $nearPoc = abs($pocDist) < 1.2;
+            $f = $this->f('poc', 'گره حجم (POC)', true,
+                $nearPoc ? 0.85 : ($pocBuy || $pocSell ? 0.65 : 0.5),
+                $pocBuy ? 'BUY' : ($pocSell ? 'SELL' : 'NEUTRAL'), 0.7,
+                'POC: ' . $this->sci((float)$poc['poc']) . ' — قیمت ' . ($pocDist >= 0 ? '+' : '') . round($pocDist, 2) . '٪ ' . ($nearPoc ? '(منطقهٔ تعادل)' : 'فاصله دارد'));
+            if ($pocBuy || $pocSell) { $vote($f, 0.7); }
+        } else {
+            $f = $this->f('poc', 'گره حجم (POC)', true, 0.5, 'NEUTRAL', 0.7, 'پروفایل حجم کافی نیست.');
+        }
         $filters[] = $f;
 
         /* ── جمع‌بندی ───────────────────────────────────────────────── */

@@ -289,6 +289,10 @@ m_layout_head('تنظیمات', 'settings');
             'structure_stop_buffer' => 'بافر استاپ ساختاری (×ATR)',
             'cooldown_hours' => 'خنک‌کردن تکرار نماد (ساعت)',
             'max_signals_per_scan' => 'سقف سیگنال در هر اسکن',
+            'max_same_side' => 'سقف نماد هم‌جهت در پرتفوی',
+            'max_portfolio_position_pct' => 'سقف سایز تجمعی پرتفوی ٪',
+            'backtest_slippage_bps' => 'اسلیپیج هر سمت (بی‌پی‌اس)',
+            'tracker_max_age_hours' => 'افق داوری ردیاب (ساعت)',
         ];
         foreach ($riskLabels as $key => $label): ?>
         <div>
@@ -338,6 +342,38 @@ m_layout_head('تنظیمات', 'settings');
         </div>
     </div>
 
+    <h3 class="field-label" style="grid-column:1/-1;margin-top:18px"><i class="fa-solid fa-microchip"></i> لایه‌های داده و هوش مصنوعی</h3>
+    <div class="grid grid--2">
+        <div class="stack" style="gap:12px">
+            <div style="display:flex;align-items:center;gap:9px">
+                <label class="switch"><input type="checkbox" id="pr_red_team" <?= Config::get('trading.red_team', true) ? 'checked' : '' ?>><span class="switch__track"></span></label>
+                <span style="font-size:12px;color:var(--text-dim)">وکیل مدافع AI (رأی مخالف — وتوی ستاپ‌های حفره‌دار)</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:9px">
+                <label class="switch"><input type="checkbox" id="pr_self_consistency" <?= Config::get('trading.self_consistency', true) ? 'checked' : '' ?>><span class="switch__track"></span></label>
+                <span style="font-size:12px;color:var(--text-dim)">خودسازگاری (پرسش دوم از مدل برتر — حذف رأی ناپایدار)</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:9px">
+                <label class="switch"><input type="checkbox" id="pr_ai_history" <?= Config::get('trading.ai_history_stats', true) ? 'checked' : '' ?>><span class="switch__track"></span></label>
+                <span style="font-size:12px;color:var(--text-dim)">تزریق سابقهٔ واقعی ردیاب در قضاوت AI</span>
+            </div>
+        </div>
+        <div class="stack" style="gap:12px">
+            <div style="display:flex;align-items:center;gap:9px">
+                <label class="switch"><input type="checkbox" id="pr_funding" <?= Config::get('trading.enable_funding', true) ? 'checked' : '' ?>><span class="switch__track"></span></label>
+                <span style="font-size:12px;color:var(--text-dim)">فیلتر فاندینگ (شلوغی پوزیشن‌های اهرمی)</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:9px">
+                <label class="switch"><input type="checkbox" id="pr_oi" <?= Config::get('trading.enable_open_interest', true) ? 'checked' : '' ?>><span class="switch__track"></span></label>
+                <span style="font-size:12px;color:var(--text-dim)">فیلتر اوپن اینترست (سوخت واقعی حرکت)</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:9px">
+                <label class="switch"><input type="checkbox" id="pr_fg" <?= Config::get('trading.enable_fear_greed', true) ? 'checked' : '' ?>><span class="switch__track"></span></label>
+                <span style="font-size:12px;color:var(--text-dim)">شاخص ترس و طمع (لایهٔ سنتیمنت کلان)</span>
+            </div>
+        </div>
+    </div>
+
     <p class="help" style="margin-top:12px">
         این آستانه‌ها سخت‌گیری موتور را کنترل می‌کنند؛ مقادیر بالاتر = سیگنال کمتر اما خطای کمتر.
         پیش‌فرض‌ها برای بازار کریپتو محافظه‌کارانه تنظیم شده‌اند.
@@ -357,6 +393,25 @@ m_layout_head('تنظیمات', 'settings');
         <div>
             <label class="field-label">هشدارهای امنیتی</label>
             <div id="security_notes" class="stack"></div>
+        </div>
+    </div>
+    <div class="divider"></div>
+    <div class="grid grid--2">
+        <div>
+            <label class="field-label" for="cron_key">کلید کران ردیاب (اختیاری)</label>
+            <input type="text" id="cron_key" class="mono" autocomplete="off" placeholder="مثلاً 32 نویسهٔ تصادفی" value="<?= meelano_e((string)Config::get('security.cron_key', '')) ?>">
+            <p class="help">برای داوری خودکار سیگنال‌های گذشته از cron-job.org یا cPanel، هر ساعت این نشانی را صدا بزنید:<br>
+            <code class="mono" style="font-size:11px">api/tracker.php?action=run&amp;key=کلید</code><br>
+            بدون کلید، کران غیرفعال است و ردیاب فقط از داخل پنل اجرا می‌شود.</p>
+            <button class="btn btn--indigo btn--sm" id="btn_cron_save" style="margin-top:10px"><i class="fa-solid fa-robot"></i> ذخیرهٔ کلید کران</button>
+        </div>
+        <div>
+            <label class="field-label">راهنمای امنیتی</label>
+            <ul class="help" style="margin:0;padding-inline-start:18px;line-height:2">
+                <li>کلیدهای API که قبلاً در فایل/چت رد و بدل شده‌اند را باطل و دوباره صادر کنید.</li>
+                <li>کلید کران را مثل رمز نگه دارید؛ هر کس آن را داشته باشد می‌تواند ردیاب را اجرا کند (فقط داوری — نه تغییر تنظیمات).</li>
+                <li>دسترسی وب به <code class="mono">config/</code> و <code class="mono">storage/</code> با htaccess مسدود است.</li>
+            </ul>
         </div>
     </div>
     <div class="divider"></div>

@@ -76,9 +76,21 @@ final class Schema
                     ai_json MEDIUMTEXT NULL,
                     status VARCHAR(16) NOT NULL DEFAULT 'new',
                     created_at DATETIME NOT NULL,
+                    hit_tp1 TINYINT NOT NULL DEFAULT 0,
+                    hit_tp2 TINYINT NOT NULL DEFAULT 0,
+                    hit_tp3 TINYINT NOT NULL DEFAULT 0,
+                    hit_stop TINYINT NOT NULL DEFAULT 0,
+                    outcome VARCHAR(16) NOT NULL DEFAULT '',
+                    exit_price DECIMAL(20,8) NOT NULL DEFAULT 0,
+                    r_multiple DECIMAL(8,3) NOT NULL DEFAULT 0,
+                    bars_held INT NOT NULL DEFAULT 0,
+                    resolved_at DATETIME NULL,
+                    tracker_json MEDIUMTEXT NULL,
                     PRIMARY KEY (id),
                     KEY idx_signals_created (created_at),
-                    KEY idx_signals_symbol (symbol)
+                    KEY idx_signals_symbol (symbol),
+                    KEY idx_signals_outcome (outcome),
+                    KEY idx_signals_tier_regime (tier, regime)
                 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
                 'sqlite' => "CREATE TABLE IF NOT EXISTS %t% (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -107,11 +119,23 @@ final class Schema
                     mtf_json TEXT,
                     ai_json TEXT,
                     status TEXT NOT NULL DEFAULT 'new',
-                    created_at TEXT NOT NULL
+                    created_at TEXT NOT NULL,
+                    hit_tp1 INTEGER NOT NULL DEFAULT 0,
+                    hit_tp2 INTEGER NOT NULL DEFAULT 0,
+                    hit_tp3 INTEGER NOT NULL DEFAULT 0,
+                    hit_stop INTEGER NOT NULL DEFAULT 0,
+                    outcome TEXT NOT NULL DEFAULT '',
+                    exit_price REAL NOT NULL DEFAULT 0,
+                    r_multiple REAL NOT NULL DEFAULT 0,
+                    bars_held INTEGER NOT NULL DEFAULT 0,
+                    resolved_at TEXT,
+                    tracker_json TEXT
                 )",
                 'sqlite_indexes' => [
                     'CREATE INDEX IF NOT EXISTS %i% ON %t% (created_at)',
                     'CREATE INDEX IF NOT EXISTS %i% ON %t% (symbol)',
+                    'CREATE INDEX IF NOT EXISTS %i% ON %t% (outcome)',
+                    'CREATE INDEX IF NOT EXISTS %i% ON %t% (tier, regime)',
                 ],
             ],
 

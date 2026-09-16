@@ -89,6 +89,7 @@ if (isset($in['trading']) && is_array($in['trading'])) {
         'tech_weight', 'ai_weight', 'ai_panel_size', 'mtf_min_alignment',
         'risk_per_trade_percent', 'atr_stop_multiplier', 'max_atr_stop_multiplier', 'structure_stop_buffer',
         'max_position_percent', 'min_risk_reward', 'cooldown_hours', 'max_signals_per_scan',
+        'max_same_side', 'max_portfolio_position_pct', 'tracker_max_age_hours', 'backtest_slippage_bps',
     ];
     foreach ($numKeys as $key) {
         if (isset($in['trading'][$key])) {
@@ -110,7 +111,8 @@ if (isset($in['trading']) && is_array($in['trading'])) {
         Config::set('trading.timeframes', $tfs);
         $changed[] = 'trading.timeframes';
     }
-    foreach (['require_ai_agreement', 'require_mtf', 'btc_filter'] as $flag) {
+    foreach (['require_ai_agreement', 'require_mtf', 'btc_filter', 'red_team', 'self_consistency',
+                  'ai_history_stats', 'enable_funding', 'enable_open_interest', 'enable_fear_greed'] as $flag) {
         if (isset($in['trading'][$flag])) {
             Config::set('trading.' . $flag, (bool)$in['trading'][$flag]);
             $changed[] = 'trading.' . $flag;
@@ -131,6 +133,30 @@ if (isset($in['market']) && is_array($in['market'])) {
     }
     if (isset($in['market']['timeout'])) {
         Config::set('market.timeout', max(3, min(60, (int)$in['market']['timeout'])));
+    }
+}
+
+/* ── امنیت: تغییر رمز + کلید کران ردیاب ──────────────────────────────── */
+if (isset($in['security']) && is_array($in['security'])) {
+    if (!empty($in['security']['password'])) {
+        $pass = (string)$in['security']['password'];
+        if (mb_strlen($pass) < 8) {
+            m_json(['ok' => false, 'error' => 'رمز باید حداقل ۸ نویسه باشد.'], 422);
+        }
+        Security::setPassword($pass);
+        $changed[] = 'app.admin_hash';
+    }
+    if (array_key_exists('cron_key', $in['security'])) {
+        $key = trim((string)$in['security']['cron_key']);
+        if ($key === '') {
+            Config::set('security.cron_key', '');
+            $changed[] = 'security.cron_key (حذف)';
+        } elseif (preg_match('/^[A-Za-z0-9_-]{16,64}$/', $key) === 1) {
+            Config::set('security.cron_key', $key);
+            $changed[] = 'security.cron_key';
+        } else {
+            m_json(['ok' => false, 'error' => 'کلید کران باید ۱۶ تا ۶۴ نویسهٔ حرف/رقم باشد.'], 422);
+        }
     }
 }
 

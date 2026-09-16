@@ -128,6 +128,24 @@ final class Installer
             }
         }
 
+        // ارتقای ستون‌های جدید روی نصب‌های موجود (نسخهٔ ۵٫۱ — ردیاب سیگنال)
+        try {
+            $upgraded = $this->upgradeSignals();
+            if ($upgraded > 0) {
+                $emit([
+                    'phase' => 'upgrade', 'step' => $total, 'total' => $total, 'percent' => 100,
+                    'ok' => true,
+                    'message' => '✓ ارتقای جدول سیگنال‌ها: ' . $upgraded . ' ستون جدید ردیاب اضافه شد.',
+                ]);
+            }
+        } catch (Throwable $e) {
+            $emit([
+                'phase' => 'upgrade', 'step' => $total, 'total' => $total, 'percent' => 100,
+                'ok' => false,
+                'message' => '⚠ ارتقای ستون‌های ردیاب ناموفق: ' . $e->getMessage(),
+            ]);
+        }
+
         // ثبت نسخه ساختار
         try {
             $this->recordMigration();
@@ -205,6 +223,81 @@ final class Installer
             'percent' => count($tables) ? (int)round((count($present) / count($tables)) * 100) : 0,
             'schema_version' => Schema::VERSION,
         ];
+    }
+
+    /**
+     * فهرست نام ستون‌های یک جدول (مستقل از درایور).
+     * @return array<int,string>
+     */
+    public function columns(string $table): array
+    {
+        $full = $this->db->table($table);
+        try {
+            if ($this->db->driver() === 'sqlite') {
+                $rows = $this->db->pdo()->query("PRAGMA table_info({$full})")->fetchAll();
+                return array_map(static function ($r) {
+                    return (string)$r['name'];
+                }, $rows);
+            }
+            $rows = $this->db->pdo()->query("SHOW COLUMNS FROM {$full}")->fetchAll();
+            return array_map(static function ($r) {
+                return (string)($r['Field'] ?? '');
+            }, $rows);
+        } catch (Throwable $e) {
+            return [];
+        }
+    }
+
+    /**
+     * ارتقای نصب‌های موجود: ستون‌های ردیاب نسخهٔ ۵٫۱ به signals اضافه می‌شوند.
+     * CREATE TABLE IF NOT EXISTS ستون جدید به جدول موجود اضافه نمی‌کند؛
+     * این متد کمبود را با ALTER پر می‌کند.
+     * @return int تعداد ستون‌های اضافه‌شده
+     */
+    private function upgradeSignals(): int
+    {
+        if (!$this->db->tableExists('signals')) {
+            return 0;
+        }
+        $wanted = [
+            'hit_tp1' => "TINYINT NOT NULL DEFAULT 0",
+            'hit_tp2' => "TINYINT NOT NULL DEFAULT 0",
+            'hit_tp3' => "TINYINT NOT NULL DEFAULT 0",
+            'hit_stop' => "TINYINT NOT NULL DEFAULT 0",
+            'outcome' => "VARCHAR(16) NOT NULL DEFAULT ''",
+            'exit_price' => "DECIMAL(20,8) NOT NULL DEFAULT 0",
+            'r_multiple' => "DECIMAL(8,3) NOT NULL DEFAULT 0",
+            'bars_held' => "INT NOT NULL DEFAULT 0",
+            'resolved_at' => "DATETIME NULL",
+            'tracker_json' => "MEDIUMTEXT NULL",
+        ];
+        if ($this->db->driver() === 'sqlite') {
+            $wanted = [
+                'hit_tp1' => "INTEGER NOT NULL DEFAULT 0",
+                'hit_tp2' => "INTEGER NOT NULL DEFAULT 0",
+                'hit_tp3' => "INTEGER NOT NULL DEFAULT 0",
+                'hit_stop' => "INTEGER NOT NULL DEFAULT 0",
+                'outcome' => "TEXT NOT NULL DEFAULT ''",
+                'exit_price' => "REAL NOT NULL DEFAULT 0",
+                'r_multiple' => "REAL NOT NULL DEFAULT 0",
+                'bars_held' => "INTEGER NOT NULL DEFAULT 0",
+                'resolved_at' => "TEXT NULL",
+                'tracker_json' => "TEXT NULL",
+            ];
+        }
+        $existing = $this->columns('signals');
+        if (!$existing) {
+            return 0;
+        }
+        $added = 0;
+        $full = $this->db->table('signals');
+        foreach ($wanted as $col => $def) {
+            if (!in_array($col, $existing, true)) {
+                $this->db->pdo()->exec("ALTER TABLE {$full} ADD COLUMN {$col} {$def}");
+                $added++;
+            }
+        }
+        return $added;
     }
 
     private function columnCount(string $table): int

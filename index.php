@@ -108,6 +108,11 @@ m_layout_head('داشبورد سیگنال', 'panel');
             <div class="stat__value" id="top_gainer">—</div>
             <div class="stat__sub" id="top_gainer_sub">—</div>
         </div>
+        <div class="stat stat--gold">
+            <div class="stat__label"><i class="fa-solid fa-face-meh"></i> ترس و طمع بازار</div>
+            <div class="stat__value" id="fg_value">—</div>
+            <div class="stat__sub"><div class="fg-gauge"><div id="fg_fill" class="fg-gauge__fill" style="width:50%"></div></div><span id="fg_label">—</span></div>
+        </div>
     </div>
     <div class="ticker-strip" id="ticker_strip" aria-hidden="true"><div class="ticker-strip__inner" id="ticker_inner">
         <span class="mono dim">در انتظار دادهٔ بازار…</span>
@@ -124,6 +129,19 @@ m_layout_head('داشبورد سیگنال', 'panel');
     <div class="stat stat--indigo"><div class="stat__label"><i class="fa-solid fa-rotate"></i> اسکن‌ها</div><div class="stat__value"><?= m_persian_digits(number_format($stats['scans'])) ?></div></div>
 </div>
 <?php endif; ?>
+
+<!-- ═══ ردیاب سیگنال — عملکرد واقعی گذشته ═════════════════════════ -->
+<div class="card-3d section" id="tracker_section" style="margin-top:18px;border-color:rgba(52,211,153,.25)">
+    <div class="section__head">
+        <h2 class="section__title"><i class="fa-solid fa-bullseye" style="color:#34d399"></i> ردیاب سیگنال — داوریِ گذشته با کندل واقعی</h2>
+        <div style="display:flex;gap:8px;align-items:center">
+            <span id="tracker_meta" class="badge">در انتظار داده</span>
+            <button class="btn btn--emerald btn--sm" id="btn_tracker_run"><i class="fa-solid fa-rotate"></i> داوری سیگنال‌های باز</button>
+        </div>
+    </div>
+    <p class="help" style="margin:0 0 12px">هر سیگنال صادرشده با کندل‌های بعدی داوری می‌شود: TP1/TP2/TP3/استاپ و R واقعی. این آمار، «درجهٔ A+» را از ادعا به عدد تبدیل می‌کند و سوخت قضاوت AI است (مدل خروج: ۵۰٪ در TP1 با انتقال استاپ به سربه‌سر، ۲۵٪ در TP2، بقیه تا TP3).</p>
+    <div id="tracker_result"></div>
+</div>
 
 <!-- ═══ نتایج زنده اسکن ═══════════════════════════════════════════ -->
 <div class="card-3d section">
@@ -193,8 +211,16 @@ m_layout_head('داشبورد سیگنال', 'panel');
                     <option>1000</option>
                 </select>
             </div>
-            <button class="btn btn--indigo btn--sm" id="btn_backtest"><i class="fa-solid fa-flask"></i> اجرای بک‌تست</button>
-            <span class="help" style="margin:0">فقط لایهٔ تکنیکال، ورود در کندل بعدی، استاپ اولویت دارد، کارمزد لحاظ شده.</span>
+            <div>
+                <label class="field-label" for="bt_mode">حالت اعتبارسنجی</label>
+                <select id="bt_mode">
+                    <option value="standard" selected>بک‌تست استاندارد</option>
+                    <option value="walkforward">واک‌فوروارد (پایداری)</option>
+                    <option value="montecarlo">مونت‌کارلو (توزیع ریسک)</option>
+                </select>
+            </div>
+            <button class="btn btn--indigo btn--sm" id="btn_backtest"><i class="fa-solid fa-flask"></i> اجرا</button>
+            <span class="help" style="margin:0">ورود کندل بعدی · استاپ اولویت دارد · کارمزد + اسلیپیج لحاظ شده.</span>
         </div>
         <div id="backtest_result" style="margin-top:14px"></div>
     </div>
@@ -206,7 +232,7 @@ m_layout_head('داشبورد سیگنال', 'panel');
     <div class="grid grid--4" style="margin-top:14px">
         <div class="kv"><span>تایم‌فریم اصلی</span><span><?= meelano_e((string)($trading['timeframe'] ?? '1h')) ?></span></div>
         <div class="kv"><span>تأیید MTF</span><span><?= meelano_e(implode(' + ', (array)($trading['timeframes'] ?? ['1h', '4h', '1d']))) ?></span></div>
-        <div class="kv"><span>حداقل فیلتر عبوری</span><span><?= m_persian_digits((string)(int)($trading['min_filters_passed'] ?? 11)) ?> از ۱۵</span></div>
+        <div class="kv"><span>حداقل فیلتر عبوری</span><span><?= m_persian_digits((string)(int)($trading['min_filters_passed'] ?? 17)) ?> از ۲۵</span></div>
         <div class="kv"><span>حداقل امتیاز تکنیکال</span><span><?= m_persian_digits((string)(float)($trading['min_tech_score'] ?? 62)) ?></span></div>
         <div class="kv"><span>حداقل امتیاز ترکیبی</span><span><?= m_persian_digits((string)(float)($trading['min_combined_score'] ?? 70)) ?></span></div>
         <div class="kv"><span>حداقل R:R</span><span><?= m_persian_digits((string)(float)($trading['min_risk_reward'] ?? 2)) ?></span></div>
@@ -216,6 +242,9 @@ m_layout_head('داشبورد سیگنال', 'panel');
         <div class="kv"><span>ریسک هر معامله</span><span><?= m_persian_digits((string)(float)($trading['risk_per_trade_percent'] ?? 1)) ?>٪</span></div>
         <div class="kv"><span>خنک‌کردن تکرار</span><span><?= m_persian_digits((string)(int)($trading['cooldown_hours'] ?? 12)) ?> ساعت</span></div>
         <div class="kv"><span>حداقل حجم ۲۴س</span><span><?= m_persian_digits(number_format((float)($trading['min_quote_volume'] ?? 5000000))) ?></span></div>
+        <div class="kv"><span>سقف هم‌جهت پرتفوی</span><span><?= m_persian_digits((string)(int)($trading['max_same_side'] ?? 4)) ?> نماد</span></div>
+        <div class="kv"><span>فیلترهای مشتقات</span><span><?= !empty($trading['enable_funding']) || !empty($trading['enable_open_interest']) ? 'فاندینگ/OI فعال' : 'غیرفعال' ?></span></div>
+        <div class="kv"><span>وکیل مدافع AI</span><span><?= !empty($trading['red_team']) ? 'فعال' : 'غیرفعال' ?></span></div>
     </div>
 </details>
 

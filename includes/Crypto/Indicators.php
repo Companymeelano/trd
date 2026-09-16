@@ -531,4 +531,240 @@ final class Indicators
         }
         return $out;
     }
+
+    /* ═══════════════ اندیکاتورهای نسخهٔ ۵٫۱ (دقت پیشرفته) ═══════════════ */
+
+    /**
+     * نسبت کارایی کافمن (ER) — تفکیک دقیق‌تر روند از رِنج نسبت به ADX.
+     * ER = |close(i) − close(i−n)| ÷ Σ|close(j) − close(j−1)|
+     * نزدیک ۱ = حرکت کارآمد (روند قوی) · نزدیک ۰ = رِنج/نویز.
+     */
+    public static function kaufmanER(array $closes, int $period = 10): array
+    {
+        $n = count($closes);
+        $out = array_fill(0, $n, null);
+        if ($n < $period + 1) {
+            return $out;
+        }
+        $sum = 0.0;
+        for ($i = 1; $i <= $period; $i++) {
+            $sum += abs($closes[$i] - $closes[$i - 1]);
+        }
+        for ($i = $period; $i < $n; $i++) {
+            if ($i > $period) {
+                $sum += abs($closes[$i] - $closes[$i - 1]);
+                $sum -= abs($closes[$i - $period] - $closes[$i - $period - 1]);
+            }
+            $change = abs($closes[$i] - $closes[$i - $period]);
+            $out[$i] = $sum > 0 ? $change / $sum : 0.0;
+        }
+        return $out;
+    }
+
+    /**
+     * قله‌های محلی (پیوت) در پنجرهٔ منتهی به i — برای واگرایی.
+     * هر پیوت باید w کندل از هر طرف بزرگ‌تر (یا کوچک‌تر) از همسایگان باشد.
+     * @return array<int,array{idx:int,val:float}> جدیدترین در انتها
+     */
+    public static function pivots(array $values, int $i, bool $high, int $w = 3, int $count = 2, int $lookback = 60): array
+    {
+        $from = max($w, $i - $lookback);
+        $out = [];
+        for ($j = $from; $j <= $i - $w; $j++) {
+            $v = $values[$j];
+            if ($v === null) { continue; }
+            $isPivot = true;
+            for ($k = $j - $w; $k <= $j + $w; $k++) {
+                if ($k === $j || $k < 0 || !isset($values[$k]) || $values[$k] === null) { continue; }
+                if ($high ? ($values[$k] > $v) : ($values[$k] < $v)) { $isPivot = false; break; }
+            }
+            if ($isPivot) {
+                $out[] = ['idx' => $j, 'val' => (float)$v];
+                if (count($out) >= $count) { break; }
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * واگرایی کلاسیک بین قیمت و اسیلاتور (RSI/OBV) در ایندکس i.
+     * bull = کف پایین‌تر قیمت + کف بالاتر اسیلاتور
+     * bear = سقف بالاتر قیمت + سقف پایین‌تر اسیلاتور
+     * @return array{type:?string,strength:float,detail:string}
+     */
+    public static function divergence(array $price, array $osc, int $i, int $lookback = 70): array
+    {
+        $none = ['type' => null, 'strength' => 0.0, 'detail' => ''];
+        if ($i < 10 || $i >= count($price)) {
+            return $none;
+        }
+        // واگرایی صعودی روی دو کف اخیر
+        $lows = self::pivots($price, $i, false, 3, 2, $lookback);
+        if (count($lows) === 2) {
+            [$a, $b] = $lows;
+            $oa = $osc[$a['idx']] ?? null;
+            $ob = $osc[$b['idx']] ?? null;
+            if ($oa !== null && $ob !== null
+                && $b['val'] < $a['val'] * 0.999 && $ob > $oa * 1.001) {
+                $gap = abs($a['val'] - $b['val']) / max(1e-9, $a['val']);
+                return [
+                    'type' => 'bull',
+                    'strength' => round(min(1.0, 0.5 + $gap * 8), 2),
+                    'detail' => 'کف پایین‌تر قیمت با کف بالاتر اسیلاتور',
+                ];
+            }
+        }
+        // واگرایی نزولی روی دو سقف اخیر
+        $highs = self::pivots($price, $i, true, 3, 2, $lookback);
+        if (count($highs) === 2) {
+            [$a, $b] = $highs;
+            $oa = $osc[$a['idx']] ?? null;
+            $ob = $osc[$b['idx']] ?? null;
+            if ($oa !== null && $ob !== null
+                && $b['val'] > $a['val'] * 1.001 && $ob < $oa * 0.999) {
+                $gap = abs($b['val'] - $a['val']) / max(1e-9, $a['val']);
+                return [
+                    'type' => 'bear',
+                    'strength' => round(min(1.0, 0.5 + $gap * 8), 2),
+                    'detail' => 'سقف بالاتر قیمت با سقف پایین‌تر اسیلاتور',
+                ];
+            }
+        }
+        return $none;
+    }
+
+    /**
+     * گپ ارزش منصفانه (FVG) در کندل‌های i−2..i.
+     * صعودی: low(i) > high(i−2) · نزولی: high(i) < low(i−2)
+     * @return array{side:string,low:float,high:float,mid:float,size_pct:float}|null
+     */
+    public static function fvgAt(array $highs, array $lows, int $i): ?array
+    {
+        if ($i < 2) { return null; }
+        $h0 = $highs[$i - 2] ?? null;
+        $l2 = $lows[$i] ?? null;
+        $l0 = $lows[$i - 2] ?? null;
+        $h2 = $highs[$i] ?? null;
+        if ($h0 === null || $l2 === null || $l0 === null || $h2 === null) { return null; }
+        if ($l2 > $h0) { // FVG صعودی
+            $gap = $l2 - $h0;
+            return [
+                'side' => 'bull', 'low' => (float)$h0, 'high' => (float)$l2,
+                'mid' => round(($h0 + $l2) / 2, 8),
+                'size_pct' => round($gap / max(1e-9, $h0) * 100, 3),
+            ];
+        }
+        if ($h2 < $l0) { // FVG نزولی
+            $gap = $l0 - $h2;
+            return [
+                'side' => 'bear', 'low' => (float)$h2, 'high' => (float)$l0,
+                'mid' => round(($h2 + $l0) / 2, 8),
+                'size_pct' => round($gap / max(1e-9, $l0) * 100, 3),
+            ];
+        }
+        return null;
+    }
+
+    /**
+     * پروفایل حجم ساده — نقطهٔ کنترل (POC) پنجرهٔ منتهی به i.
+     * قیمت معیار به bucketها تقسیم و حجم هر سطل جمع می‌شود؛ POC = مرکز پرحجم‌ترین سطل.
+     * @return array{poc:float,value_area:float}|null
+     */
+    public static function poc(array $highs, array $lows, array $closes, array $volumes, int $i, int $window = 100, int $buckets = 24): ?array
+    {
+        $from = max(0, $i - $window + 1);
+        if ($i - $from + 1 < 10) { return null; }
+        $lo = INF; $hi = -INF;
+        for ($j = $from; $j <= $i; $j++) {
+            if ($lows[$j] !== null) { $lo = min($lo, $lows[$j]); }
+            if ($highs[$j] !== null) { $hi = max($hi, $highs[$j]); }
+        }
+        if (!is_finite($lo) || !is_finite($hi) || $hi <= $lo) { return null; }
+        $step = ($hi - $lo) / $buckets;
+        $vol = array_fill(0, $buckets, 0.0);
+        for ($j = $from; $j <= $i; $j++) {
+            $tp = ($highs[$j] + $lows[$j] + $closes[$j]) / 3;
+            $b = (int)floor(($tp - $lo) / $step);
+            if ($b >= 0 && $b < $buckets) {
+                $vol[$b] += (float)$volumes[$j];
+            }
+        }
+        $best = 0; $bestVol = -1.0;
+        $total = 0.0;
+        foreach ($vol as $b => $v) {
+            $total += $v;
+            if ($v > $bestVol) { $bestVol = $v; $best = $b; }
+        }
+        if ($total <= 0) { return null; }
+        return [
+            'poc' => round($lo + ($best + 0.5) * $step, 8),
+            'value_area' => round($bestVol / $total, 3), // سهم حجمی سطل POC
+        ];
+    }
+
+    /** برچسب سشن معاملاتی از مهر زمانی UTC (نقدینگی متفاوت سشن‌ها). */
+    public static function sessionOf(int $ts): string
+    {
+        $dow = (int)gmdate('w', $ts);
+        $hour = (int)gmdate('G', $ts);
+        if ($dow === 6 || ($dow === 0 && $hour < 22) || ($dow === 5 && $hour >= 22)) {
+            return 'weekend';
+        }
+        $asia = ($hour >= 0 && $hour < 8);
+        $europe = ($hour >= 7 && $hour < 16);
+        $us = ($hour >= 13 && $hour < 21);
+        if ($europe && $us) { return 'overlap'; }
+        if ($asia && $europe) { return 'asia_europe'; }
+        if ($asia) { return 'asia'; }
+        if ($europe) { return 'europe'; }
+        if ($us) { return 'america'; }
+        return 'off';
+    }
+
+    /**
+     * شکار نقدینگی (Liquidity Sweep) در ایندکس i:
+     * ردِ کف سوئینگ و بسته‌شدن بالای آن با حجم بالا = سویپ صعودی (ورود نهادی).
+     * @return array{side:string,level:float,vol_ratio:float}|null
+     */
+    public static function liquiditySweep(array $highs, array $lows, array $closes, array $volumes, int $i, ?float $swingLow, ?float $swingHigh): ?array
+    {
+        if ($i < 2 || $swingLow === null || $swingHigh === null) { return null; }
+        // میانگین حجم ۲۰ کندلی قبل از i
+        $from = max(0, $i - 21);
+        $sum = 0.0; $cnt = 0;
+        for ($j = $from; $j < $i; $j++) { $sum += (float)$volumes[$j]; $cnt++; }
+        $avgVol = $cnt > 0 ? $sum / $cnt : 0.0;
+        if ($avgVol <= 0) { return null; }
+        $volRatio = (float)$volumes[$i] / $avgVol;
+
+        // سویپ صعودی: سایهٔ پایین کف را شکست، کلوز بالای کف ماند، حجم تأییدی
+        if ((float)$lows[$i] < $swingLow && (float)$closes[$i] > $swingLow && $volRatio >= 1.3) {
+            return ['side' => 'bull', 'level' => $swingLow, 'vol_ratio' => round($volRatio, 2)];
+        }
+        // سویپ نزولی: سایهٔ بالا سقف را شکست، کلوز زیر سقف ماند
+        if ((float)$highs[$i] > $swingHigh && (float)$closes[$i] < $swingHigh && $volRatio >= 1.3) {
+            return ['side' => 'bear', 'level' => $swingHigh, 'vol_ratio' => round($volRatio, 2)];
+        }
+        return null;
+    }
+
+    /**
+     * قدرت نسبی نسبت به بیت‌کوین (RS%) — بهترین فیلتر آلت‌کوین.
+     شیب ۲۰ کندلی خط نسبت (close/btc) به‌صورت درصد.
+     @return float|null مثبت = قوی‌تر از BTC · منفی = ضعیف‌تر
+     */
+    public static function relativeStrength(array $closes, array $btcCloses, int $period = 20): ?float
+    {
+        $n = count($closes);
+        $m = count($btcCloses);
+        if ($n < $period + 1 || $m < $n) { return null; }
+        // هم‌تراز انتهایی: کندل آخر نماد با کندل آخر بیت‌کوین
+        $off = $m - $n;
+        $last = $closes[$n - 1] / max(1e-9, $btcCloses[$m - 1]);
+        $prevIdx = $n - 1 - $period;
+        if ($prevIdx < 0 || !isset($btcCloses[$off + $prevIdx])) { return null; }
+        $prev = $closes[$prevIdx] / max(1e-9, $btcCloses[$off + $prevIdx]);
+        if ($prev <= 0) { return null; }
+        return round(($last / $prev - 1) * 100, 2);
+    }
 }

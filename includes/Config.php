@@ -101,7 +101,7 @@ final class Config
                 'timeframes' => ['1h', '4h', '1d'],   // تأیید چند تایم‌فریمی
                 'scan_limit' => 40,
                 'min_quote_volume' => 5000000,
-                'min_filters_passed' => 11,            // از ۱۵ فیلتر
+                'min_filters_passed' => 17,            // از ۲۵ فیلتر
                 'min_tech_score' => 62.0,
                 'min_combined_score' => 70.0,
                 'require_ai_agreement' => true,
@@ -110,7 +110,16 @@ final class Config
                 'tech_weight' => 0.6,
                 'ai_weight' => 0.4,
                 'ai_panel_size' => 3,
+                'red_team' => true,                    // وکیل مدافع AI
+                'self_consistency' => true,            // پرسش دوم از مدل برتر
+                'ai_history_stats' => true,            // تزریق سابقهٔ ردیاب در پرامپت
                 'btc_filter' => true,
+                'enable_funding' => true,              // فیلتر فاندینگ
+                'enable_open_interest' => true,        // فیلتر اوپن اینترست (تنبل)
+                'enable_fear_greed' => true,           // شاخص ترس و طمع
+                'max_same_side' => 4,                  // دروازهٔ همبستگی: سقف هم‌جهت
+                'max_portfolio_position_pct' => 60.0,  // سقف سایز تجمعی پرتفوی
+                'tracker_max_age_hours' => 96,         // افق داوری ردیاب
                 'risk_per_trade_percent' => 1.0,
                 'atr_stop_multiplier' => 2.0,
                 'max_atr_stop_multiplier' => 3.0,
@@ -120,11 +129,13 @@ final class Config
                 'cooldown_hours' => 12,
                 'max_signals_per_scan' => 8,
                 'backtest_fee_bps' => 8.0,
+                'backtest_slippage_bps' => 3.0,        // اسلیپیج هر سمت
                 'backtest_horizon_bars' => 72,
             ],
             'security' => [
                 'rate_limit_per_minute' => 60,
                 'allowed_origins' => [],
+                'cron_key' => '',   // کلید اجرای کران ردیاب (api/tracker.php?action=run&key=…)
             ],
         ];
     }
