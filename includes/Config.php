@@ -131,11 +131,34 @@ final class Config
                 'backtest_fee_bps' => 8.0,
                 'backtest_slippage_bps' => 3.0,        // اسلیپیج هر سمت
                 'backtest_horizon_bars' => 72,
+
+                /* ── معامله‌گر خودکار (نسخهٔ ۵٫۲) ───────────────────── */
+                'auto_trade_enabled' => false,         // کلید اصلی (پیش‌فرض خاموش)
+                'auto_mode' => 'buy_sell',             // buy_sell | buy_only | sell_only
+                'auto_amount_mode' => 'percent',       // percent | fixed
+                'auto_amount_percent' => 10.0,         // ٪ موجودی در هر معامله
+                'auto_amount_fixed' => 100.0,          // مبلغ ثابت USDT
+                'auto_max_open_positions' => 5,        // سقف پوزیشن هم‌زمان
+                'auto_min_tier' => 'A',                // حداقل درجهٔ سیگنال
+                'auto_min_combined' => 75.0,           // حداقل امتیاز ترکیبی
+                'auto_tp_mode' => 'ladder',            // ladder (۵۰/۲۵/۲۵) | tp2 | tp3
+                'auto_honor_stop' => true,             // اجرای استاپ سیگنال
+                'auto_close_on_opposite' => true,      // بستن با سیگنال مخالف
+                'auto_dry_run' => true,                // پیش‌فرض: ثبت رویداد بدون اجرا
+                'paper_initial_usdt' => 10000.0,       // موجودی اولیهٔ کیف تست
             ],
             'security' => [
                 'rate_limit_per_minute' => 60,
                 'allowed_origins' => [],
                 'cron_key' => '',   // کلید اجرای کران ردیاب (api/tracker.php?action=run&key=…)
+            ],
+            'exchange' => [
+                'provider' => 'binance',        // binance (بقیه در نقشه راه)
+                'mode' => 'testnet',            // testnet | live
+                'api_key' => '',
+                'api_secret' => '',
+                'live_enabled' => false,        // معاملهٔ واقعی فقط با تأیید صریح
+                'receive_window' => 5000,
             ],
         ];
     }
@@ -231,6 +254,13 @@ final class Config
             $data['db']['pass_masked'] = m_mask_secret((string)$data['db']['pass']);
             $data['db']['pass_set'] = true;
             $data['db']['pass'] = '';
+        }
+        foreach (['api_key', 'api_secret'] as $secretField) {
+            if (!empty($data['exchange'][$secretField])) {
+                $data['exchange'][$secretField . '_masked'] = m_mask_secret((string)$data['exchange'][$secretField]);
+                $data['exchange'][$secretField . '_set'] = true;
+                $data['exchange'][$secretField] = '';
+            }
         }
         $data['app']['admin_hash'] = $data['app']['admin_hash'] !== '' ? '***' : '';
         return $data;

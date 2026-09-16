@@ -166,8 +166,9 @@ function m_mask_secret(string $secret): string
     if ($len === 0) {
         return '—';
     }
-    if ($len <= 8) {
-        return str_repeat('•', $len);
+    if ($len <= 12) {
+        // کلید کوتاه: نمایش کامل دم/سر، خودِ کلید را می‌سازد — هرگز کامل نشان نده
+        return substr($secret, 0, 4) . str_repeat('•', 8);
     }
     return substr($secret, 0, 6) . str_repeat('•', min(18, $len - 10)) . substr($secret, -4);
 }

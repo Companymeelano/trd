@@ -524,3 +524,75 @@ details.collapse summary { cursor: pointer; font-size: 12.5px; font-weight: 700;
 .calib-chip b { color: #34d399; font-size: 14px; }
 
 #tracker_section .badge { font-size: 11px; }
+
+/* ═══ نسخهٔ ۵٫۲ — پنل معامله‌گر خودکار ═════════════════════════════ */
+
+/* کارت‌های کج‌شونده سه‌بعدی */
+.tilt-3d { transition: transform .35s cubic-bezier(.22,1,.36,1), box-shadow .35s ease; transform-style: preserve-3d; }
+.tilt-3d:hover { transform: perspective(700px) translateY(-4px) rotateX(3deg) rotateY(-2deg); box-shadow: 0 18px 40px -14px rgba(0,0,0,.55), 0 0 0 1px rgba(251,191,36,.18); }
+
+/* کارت‌های انتخاب حالت */
+.mode-card {
+    position: relative; display: flex; flex-direction: column; gap: 6px;
+    padding: 14px 16px; border-radius: 14px; cursor: pointer;
+    background: rgba(17, 26, 51, .55); border: 1px solid rgba(148, 163, 184, .18);
+    transition: all .25s ease;
+}
+.mode-card i { font-size: 20px; color: var(--indigo-1); }
+.mode-card b { font-size: 14px; color: var(--text-hi); }
+.mode-card span { font-size: 11.5px; color: var(--text-dim); line-height: 1.8; }
+.mode-card:hover { border-color: rgba(99, 102, 241, .5); transform: translateY(-2px); }
+.mode-card.is-active {
+    border-color: var(--indigo-1); background: rgba(99, 102, 241, .12);
+    box-shadow: 0 0 0 1px var(--indigo-1), 0 10px 26px -12px rgba(99, 102, 241, .5);
+}
+.mode-card.is-active::after {
+    content: '\f00c'; font: 900 11px 'Font Awesome 6 Free';
+    position: absolute; top: 10px; inset-inline-end: 12px; color: var(--indigo-1);
+}
+
+/* جعبهٔ نمودار */
+.chart-box { margin-top: 12px; }
+.chart-box svg { border-radius: 12px; background: rgba(11, 16, 32, .5); }
+
+/* نوارهای سود به تفکیک نماد */
+.sym-bar { display: grid; grid-template-columns: 64px 1fr 96px 58px; gap: 10px; align-items: center; margin: 7px 0; }
+.sym-bar__name { font-size: 12px; font-weight: 700; color: var(--text-hi); }
+.sym-bar__track { height: 10px; border-radius: 8px; background: rgba(148, 163, 184, .12); overflow: hidden; }
+.sym-bar__fill { height: 100%; border-radius: 8px; transition: width .8s cubic-bezier(.22,1,.36,1); }
+.sym-bar__fill.up { background: linear-gradient(90deg, #059669, #34d399); box-shadow: 0 0 10px rgba(52, 211, 153, .4); }
+.sym-bar__fill.down { background: linear-gradient(90deg, #e11d48, #fb7185); box-shadow: 0 0 10px rgba(251, 113, 133, .4); }
+.sym-bar__val { font-size: 12px; font-weight: 700; text-align: start; }
+.sym-bar__val + .help { text-align: end; font-size: 10px; }
+
+/* نوار پیشرفت پوزیشن (استاپ ← TP2) */
+.pos-progress { position: relative; height: 8px; border-radius: 8px; background: linear-gradient(90deg, rgba(251,113,133,.35), rgba(148,163,184,.2), rgba(52,211,153,.4)); }
+.pos-progress__fill { height: 100%; border-radius: 8px; background: linear-gradient(90deg, rgba(251,191,36,.7), rgba(251,191,36,.25)); width: 0; transition: width .7s ease; }
+.pos-progress__pin { position: absolute; top: -4px; transform: translateX(-50%); font-size: 13px; color: var(--gold-1); filter: drop-shadow(0 0 4px rgba(251,191,36,.8)); }
+
+/* کارت‌های صرافی */
+.ex-card {
+    display: flex; flex-direction: column; align-items: center; gap: 6px;
+    padding: 16px 12px; border-radius: 14px; text-align: center;
+    background: rgba(17, 26, 51, .55); border: 1px solid rgba(148, 163, 184, .16);
+}
+.ex-card b { font-size: 14px; color: var(--text-hi); }
+.ex-card span { font-size: 11px; color: var(--text-dim); }
+.ex-card.is-active { border-color: rgba(247, 147, 26, .5); box-shadow: 0 0 18px -8px rgba(247, 147, 26, .45); }
+.ex-card.is-soon { opacity: .45; filter: grayscale(.6); }
+
+/* نتیجهٔ تست اتصال */
+.ex-ok, .ex-warn {
+    display: flex; align-items: center; gap: 8px; padding: 9px 13px;
+    border-radius: 10px; font-size: 12.5px; margin-top: 6px;
+}
+.ex-ok { background: rgba(52, 211, 153, .1); border: 1px solid rgba(52, 211, 153, .35); color: #a7f3d0; }
+.ex-warn { background: rgba(251, 191, 36, .1); border: 1px solid rgba(251, 191, 36, .35); color: #fde68a; }
+
+/* ردیف کارنامه */
+#trades_box .data td, #open_positions .data td { padding: 9px 8px; }
+
+@media (max-width: 720px) {
+    .sym-bar { grid-template-columns: 52px 1fr 78px; }
+    .sym-bar .help { display: none; }
+}

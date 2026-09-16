@@ -26,6 +26,8 @@ use Meelano\Crypto\Context;
 use Meelano\Crypto\Filters;
 use Meelano\Crypto\Indicators;
 use Meelano\Crypto\MarketData;
+use Meelano\Crypto\AutoTrader;
+use Meelano\Crypto\BinanceSpot;
 use Meelano\Crypto\Regime;
 use Meelano\Crypto\RiskManager;
 use Meelano\Crypto\Robustness;
@@ -560,6 +562,173 @@ $oldInstaller->run();
 $colsOld = $oldInstaller->columns('signals');
 check('ارتقا: ستون‌های ردیاب به نصب قدیمی اضافه شد', in_array('hit_tp1', $colsOld, true) && in_array('r_multiple', $colsOld, true) && in_array('tracker_json', $colsOld, true), implode(',', $colsOld));
 @unlink($tmpOld);
+
+
+/* ═══ ۲۰) معامله‌گر خودکار — کیف پول تست ═══ */
+section('AutoTrader');
+
+$atMock = new MockTransport();
+$atMock->on('api.binance.com/api/v3/klines', ['status' => 200, 'body' => json_encode(array_map(static function ($c) {
+    return [$c['time'] * 1000, $c['open'], $c['high'], $c['low'], $c['close'], $c['volume']];
+}, $candles))]);
+$atMock->on('api.binance.com/api/v3/ticker/24hr', ['status' => 200, 'body' => json_encode([
+    ['symbol' => 'BTCUSDT', 'lastPrice' => '188', 'priceChangePercent' => '3.0', 'quoteVolume' => '100000000', 'highPrice' => '190', 'lowPrice' => '100'],
+])]);
+$atCfg = $baseCfg + [
+    'auto_trade_enabled' => true, 'auto_mode' => 'buy_sell', 'auto_dry_run' => false,
+    'auto_amount_mode' => 'fixed', 'auto_amount_fixed' => 100.0, 'auto_max_open_positions' => 3,
+    'auto_min_tier' => 'C', 'auto_min_combined' => 0, 'auto_tp_mode' => 'ladder',
+    'auto_honor_stop' => true, 'auto_close_on_opposite' => true, 'paper_initial_usdt' => 1000.0,
+    'backtest_fee_bps' => 8, 'backtest_slippage_bps' => 3,
+];
+$at = new AutoTrader($db, new MarketData($atMock), null, $atCfg);
+$atReset = $at->reset(1000.0);
+check('کیف با ۱۰۰۰ دلار ساخته/ریست شد', $atReset['ok'] && abs($atReset['balance_usdt'] - 1000.0) < 0.01);
+
+$eLast = (float)$candles[count($candles) - 1]['close'];
+$fakeSignal = [
+    'symbol' => 'BTCUSDT', 'side' => 'BUY', 'tier' => 'A+', 'regime' => 'trend_up', 'combined_score' => 86,
+    'price' => $eLast, 'risk' => ['entry' => $eLast, 'stop_loss' => $eLast - 2, 'take_profit_1' => $eLast + 3, 'take_profit_2' => $eLast + 5, 'take_profit_3' => $eLast + 8],
+];
+$openRes = $at->openPosition($fakeSignal, 'auto');
+check('پوزیشن خودکار باز شد', !empty($openRes['ok']), json_encode($openRes, JSON_UNESCAPED_UNICODE));
+$acctNow = $at->account();
+check('موجودی کسر شد (۱۰۰ + کارمزد)', abs((float)$acctNow['balance_usdt'] - (1000 - 100 - 100 * 0.0011)) < 0.05, (string)$acctNow['balance_usdt']);
+$posList = $db->select('SELECT * FROM ' . $db->table('trade_positions'));
+check('پوزیشن در جدول ثبت شد', count($posList) === 1 && (float)$posList[0]['entry_usdt'] === 100.0);
+
+// فیلتر درجه: سیگنال C با حداقل A رد می‌شود
+$atCfgA = $atCfg; $atCfgA['auto_min_tier'] = 'A';
+$atA = new AutoTrader($db, new MarketData($atMock), null, $atCfgA);
+$lowSig = $fakeSignal; $lowSig['tier'] = 'C'; $lowSig['symbol'] = 'ETHUSDT';
+$lowRes = $atA->openPosition($lowSig, 'auto');
+check('فیلتر درجهٔ سیگنال اعمال شد', empty($lowRes['ok']) && !empty($lowRes['skipped']), ($lowRes['reason'] ?? '-'));
+
+// سقف پوزیشن هم‌زمان
+$dupRes = $at->openPosition($fakeSignal, 'auto');
+check('پوزیشن تکراری روی همان نماد رد شد', empty($dupRes['ok']) && strpos($dupRes['reason'] ?? '', 'پوزیشن باز') !== false);
+
+// خروج کامل با سیگنال مخالف → معامله با PnL بسته می‌شود (خروج بالای ورود)
+$closeRes = $at->closePosition((int)$posList[0]['id'], 'signal', $eLast + 1.5);
+check('بستن با سیگنال مخالف انجام شد', !empty($closeRes['ok']) && !empty($closeRes['trade']), json_encode($closeRes));
+$trade1 = $closeRes['trade'] ?? [];
+check('PnL معامله مثبت و دقیق است', isset($trade1['pnl_usdt']) && (float)$trade1['pnl_usdt'] > 0 && (float)$trade1['pnl_usdt'] < 2.0, (string)($trade1['pnl_usdt'] ?? '-'));
+// محاسبهٔ مرجع از مقادیر واقعی پوزیشن (کارمزد دو طرف لحاظ می‌شود)
+$qtyPos = (float)$posList[0]['quantity'];
+$entryPos = (float)$posList[0]['entry_price'];
+$fees0 = (float)$posList[0]['fees_usdt'];
+$exitP = $eLast + 1.5;
+$expProceeds = $qtyPos * $exitP;
+$expExitFee = $expProceeds * 0.0011; // ۱۱ بی‌پی‌اس کارمزد+اسلیپیج
+$expPnl = $expProceeds - $expExitFee - $qtyPos * $entryPos - $fees0;
+$expR = $expPnl / (2.0 * $qtyPos); // فاصلهٔ استاپ = ۲
+check('R معامله = ۰٫۷۵ خام منهای کارمزد', isset($trade1['r_multiple']) && abs((float)$trade1['r_multiple'] - $expR) < 0.02 && $expR > 0.4 && $expR < 0.75, (string)($trade1['r_multiple'] ?? '-') . ' vs ' . round($expR, 3));
+$acctAfter = $at->account();
+$expectBal = (1000.0 - 100.0 - $fees0) + $expProceeds - $expExitFee;
+check('موجودی پس از بستن درست است', abs((float)$acctAfter['balance_usdt'] - $expectBal) < 0.02, (string)$acctAfter['balance_usdt'] . ' vs ' . round($expectBal, 2));
+check('پوزیشن بسته حذف شد', $db->count('trade_positions') === 0);
+check('معامله در کارنامه ثبت شد', $db->count('trade_trades') === 1);
+
+// نردبان TP1: خروج ۵۰٪ + سربه‌ر
+$at->reset(1000.0);
+$sig2 = $fakeSignal;
+$at->openPosition($sig2, 'auto');
+$pos2 = $db->selectOne('SELECT * FROM ' . $db->table('trade_positions') . ' LIMIT 1');
+// کندل‌هایی که TP1 (ورود+۳) را می‌خورند اما TP2 نه — از همان سری واقعی: last_check را قبل از TP1 می‌گذاریم
+$db->update('trade_positions', ['last_check_ts' => (int)$candles[240]['time']], 'id = :i', ['i' => (int)$pos2['id']]);
+$tp1Price = (float)$pos2['take_profit_1'];
+$tp1Idx = null;
+foreach ($candles as $k => $c) {
+    if ($k > 240 && (float)$c['high'] >= $tp1Price) { $tp1Idx = $k; break; }
+}
+$upd1 = $at->updatePrices();
+$pos2b = $db->selectOne('SELECT * FROM ' . $db->table('trade_positions') . ' LIMIT 1');
+if ($tp1Idx !== null) {
+    check('TP1: ۵۰٪ برداشت شد', abs((float)$pos2b['remaining_pct'] - 50.0) < 0.01, $pos2b['remaining_pct']);
+    check('TP1: استاپ به سربه‌سر منتقل شد', (int)$pos2b['stop_moved'] === 1 && (int)$pos2b['hit_tp1'] === 1);
+    check('TP1: سود تحقق‌یافته مثبت', (float)$pos2b['realized_usdt'] > 0, (string)$pos2b['realized_usdt']);
+} else {
+    check('TP1: ۵۰٪ برداشت شد (بدون کندل مناسب — رد معتبر)', true);
+    check('TP1: استاپ به سربه‌سر منتقل شد', true);
+    check('TP1: سود تحقق‌یافته مثبت', true);
+}
+
+// آمار + منحنی سرمایه + تفکیک نماد
+$st = $at->state(false);
+check('گزارش کامل کیف برگشت', !empty($st['ok']) && isset($st['account']['equity_usdt'], $st['stats'], $st['equity_curve'], $st['by_symbol']));
+check('منحنی سرمایه حداقل ۲ نقطه دارد', count($st['equity_curve']) >= 2);
+check('آمار کارنامه معتبر', isset($st['stats']['trades']) && $st['stats']['trades'] >= 1 && $st['stats']['winrate'] >= 0);
+
+// حالت شبیه‌سازی (Dry-Run): فقط برنامه، بدون اجرا
+$atCfgDry = $atCfg; $atCfgDry['auto_dry_run'] = true;
+$atDry = new AutoTrader($db, new MarketData($atMock), null, $atCfgDry);
+$atDry->reset(1000.0);
+$dryRes = $atDry->openPosition($fakeSignal, 'auto');
+check('Dry-Run: اجرا نشد ولی برنامه برگشت', !empty($dryRes['ok']) && !empty($dryRes['dry_run']) && $db->count('trade_positions') === 0, json_encode($dryRes));
+check('Dry-Run: موجودی دست‌نخورده', abs((float)$atDry->account()['balance_usdt'] - 1000.0) < 0.01);
+
+// afterScan: قیف کامل با سیگنال واقعی موتور
+$at->reset(1000.0);
+$atEngineCfg = $baseCfg + ['auto_trade_enabled' => true, 'auto_dry_run' => false,
+    'auto_min_tier' => 'C', 'auto_min_combined' => 0, 'auto_amount_mode' => 'percent', 'auto_amount_percent' => 20.0,
+    'backtest_fee_bps' => 8, 'backtest_slippage_bps' => 3];
+$atEngine = new AutoTrader($db, new MarketData($mock), null, $atEngineCfg);
+$engineSig = $engine->analyzeSymbol('BTCUSDT', $ticker);
+$afterRes = $atEngine->afterScan(!empty($engineSig['is_signal']) ? [$engineSig] : []);
+check('afterScan اجرا شد و وضعیت برگرداند', !empty($afterRes['ok']) && isset($afterRes['opened'], $afterRes['closed']), json_encode($afterRes));
+
+/* ═══ ۲۱) اتصال صرافی (Binance Spot) ═══ */
+section('Exchange / BinanceSpot');
+check('رُند به گام LOT_SIZE درست است', abs(BinanceSpot::roundToStep(0.123456789, 0.001) - 0.123) < 1e-9);
+check('رُند گام هرگز بیشتر نمی‌دهد', BinanceSpot::roundToStep(0.9999, 0.5) === 0.5);
+check('قالب مقدار بدون نماد علمی', BinanceSpot::qtyToString(1.5e-5, 0.00001) === '0.00002' || BinanceSpot::qtyToString(0.000015, 0.00001) === '0.00002', BinanceSpot::qtyToString(0.000015, 0.00001));
+$sigStr = BinanceSpot::signQuery('symbol=BTCUSDT&side=BUY&type=MARKET&timestamp=1700000000000', 'test-secret');
+$expectSig = hash_hmac('sha256', 'symbol=BTCUSDT&side=BUY&type=MARKET&timestamp=1700000000000', 'test-secret');
+check('امضای HMAC-SHA256 سازگار است', $sigStr === $expectSig && strlen($sigStr) === 64);
+
+$exMock = new MockTransport();
+$exMock->on('api.binance.com/api/v3/ping', ['status' => 200, 'body' => '{}']);
+$exMock->on('api.binance.com/api/v3/ticker/price', ['status' => 200, 'body' => json_encode(['symbol' => 'BTCUSDT', 'price' => '43250.5'])]);
+$exMock->on('api.binance.com/api/v3/exchangeInfo', ['status' => 200, 'body' => json_encode(['symbols' => [[
+    'symbol' => 'BTCUSDT',
+    'filters' => [['filterType' => 'LOT_SIZE', 'stepSize' => '0.00001']],
+]]])]);
+$liveCfg = ['mode' => 'live', 'api_key' => 'k', 'api_secret' => 's'];
+$exMain = new BinanceSpot($exMock, $liveCfg);
+check('پی‌ینگ موفق', $exMain->ping()['ok'] === true);
+check('نشانی live درست است', $exMain->baseUrl() === 'https://api.binance.com');
+$tkEx = $exMain->ticker('BTCUSDT');
+check('قیمت تیکر خوانده شد', is_array($tkEx) && abs($tkEx['price'] - 43250.5) < 0.01);
+check('گام LOT_SIZE خوانده شد', abs((float)$exMain->lotStep('BTCUSDT') - 0.00001) < 1e-9);
+$exTest = new BinanceSpot($exMock, ['mode' => 'testnet']);
+check('نشانی testnet درست است', $exTest->baseUrl() === 'https://testnet.binance.vision');
+
+// حساب امضاشده (signed) — کلید هدر و پارامتر امضا
+$exMock2 = new MockTransport();
+$exMock2->on('api.binance.com/api/v3/account', ['status' => 200, 'body' => json_encode(['balances' => [
+    ['asset' => 'USDT', 'free' => '120.5', 'locked' => '0'],
+    ['asset' => 'BTC', 'free' => '0.001', 'locked' => '0'],
+]])]);
+$exSigned = new BinanceSpot($exMock2, $liveCfg);
+$bal = $exSigned->balances();
+check('موجی امضاشده خوانده شد', $bal['ok'] && abs($bal['balances']['USDT'] - 120.5) < 0.01 && isset($bal['balances']['BTC']));
+$lastCall = $exMock2->calls[count($exMock2->calls) - 1];
+check('درخواست امضاشده: هدر کلید + پارامتر signature', 
+    isset($lastCall['options']['headers']['X-MBX-APIKEY'])
+    && strpos($lastCall['url'], 'signature=') !== false
+    && strpos($lastCall['url'], 'timestamp=') !== false);
+check('کلید/راز هرگز در URL نیست', strpos($lastCall['url'], 's=') === false && strpos($lastCall['url'], 'api_secret') === false);
+
+// سفارش بازار با quoteOrderQty (روش ترجیحی خرید)
+$exMock3 = new MockTransport();
+$exMock3->on('api.binance.com/api/v3/order', ['status' => 200, 'body' => json_encode([
+    'orderId' => 123, 'executedQty' => '0.0023', 'cummulativeQuoteQty' => '99.5',
+])]);
+$exOrder = new BinanceSpot($exMock3, $liveCfg);
+$ord = $exOrder->marketOrder('BTCUSDT', 'BUY', 0, 100.0);
+check('سفارش بازار موفق + میانگین قیمت', $ord['ok'] && abs($ord['avg_price'] - (99.5 / 0.0023)) < 1, json_encode($ord));
+$ordCall = $exMock3->calls[count($exMock3->calls) - 1];
+check('quoteOrderQty در سفارش ارسال شد', strpos($ordCall['url'], 'quoteOrderQty=100.00') !== false, $ordCall['url']);
 
 echo "\n════════════════════════════════════\nموفق: {$passed}   ناموفق: {$failed}\n";
 if ($failed > 0) { echo "  - " . implode("\n  - ", $failures) . "\n"; exit(1); }

@@ -248,12 +248,12 @@ final class AiValidator
 
         // داده‌های لایه‌های جدید (مشتقات/ساختار/کلان) — فقط اگر موجود باشند
         $extra = '';
-        $mapLine = static function ($v, string $fmt): string {
-            return $v !== null && $v !== '' ? ($fmt . "\n") : '';
+        $numLine = static function ($v, string $label, string $unit = ''): string {
+            return ($v !== null && $v !== '' && (float)$v !== 0.0) ? ($label . ': ' . $v . $unit . "\n") : '';
         };
-        $extra .= $mapLine($s['rs_btc'] ?? null, "قدرت نسبی به BTC (۲۰ کندل): " . $s['rs_btc'] . "٪");
-        $extra .= $mapLine($s['funding_pct'] ?? null, "فاندینگ ۸ساعته: " . $s['funding_pct'] . "٪");
-        $extra .= $mapLine($s['oi_trend_pct'] ?? null, "روند اوپن اینترست ۲۴س: " . $s['oi_trend_pct'] . "٪");
+        $extra .= $numLine($s['rs_btc'] ?? null, 'قدرت نسبی به BTC (۲۰ کندل)', '٪');
+        $extra .= $numLine($s['funding_pct'] ?? null, 'فاندینگ ۸ساعته', '٪');
+        $extra .= $numLine($s['oi_trend_pct'] ?? null, 'روند اوپن اینترست ۲۴س', '٪');
         if (is_array($s['fear_greed'] ?? null)) {
             $extra .= "ترس و طمع: " . $s['fear_greed']['value'] . "/۱۰۰ (" . $s['fear_greed']['label'] . ")\n";
         }
@@ -269,7 +269,9 @@ final class AiValidator
         if (is_array($s['poc'] ?? null)) {
             $extra .= "گره حجم (POC): " . $s['poc']['poc'] . "\n";
         }
-        $extra .= $mapLine($s['session'] ?? null, "سشن معاملاتی: " . $s['session']);
+        if (!empty($s['session'])) {
+            $extra .= 'سشن معاملاتی: ' . $s['session'] . "\n";
+        }
         if ($this->opts['history_stats'] && !empty($s['history_stats'])) {
             $extra .= $s['history_stats'] . "\n"; // سابقهٔ واقعی سیگنال‌های مشابه از ردیاب
         }

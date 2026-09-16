@@ -58,6 +58,7 @@ if (!function_exists('m_layout_nav')) {
     {
         $items = [
             'panel' => ['url' => 'index.php', 'icon' => 'fa-chart-line', 'label' => 'داشبورد سیگنال'],
+            'trade' => ['url' => 'trade.php', 'icon' => 'fa-robot', 'label' => 'معامله‌گر خودکار'],
             'settings' => ['url' => 'settings.php', 'icon' => 'fa-sliders', 'label' => 'تنظیمات'],
         ];
         ?>

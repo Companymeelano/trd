@@ -57,6 +57,23 @@ if ($symbol !== '') {
 }
 
 $result = $engine->scanMarket();
+
+// ── قلاب معامله‌گر خودکار: اجرای سیگنال‌ها روی کیف تست/زنده (نسخهٔ ۵٫۲) ──
+$auto = null;
+try {
+    if ($db !== null && $db->tableExists('trade_accounts')
+        && (bool)Config::get('trading.auto_trade_enabled', false)) {
+        $auto = (new \Meelano\Crypto\AutoTrader(
+            $db,
+            new MarketData(null, $marketCfg),
+            null,
+            array_merge((array)Config::get('trading', []), (array)Config::get('market', []))
+        ))->afterScan($result['signals']);
+    }
+} catch (Throwable $e) {
+    $auto = ['ok' => false, 'errors' => ['auto: ' . $e->getMessage()]];
+}
+
 m_json([
     'ok' => (bool)$result['ok'],
     'mode' => 'market',
@@ -67,6 +84,9 @@ m_json([
     'ai_used' => $result['ai_used'],
     'breadth' => $result['breadth'],
     'btc' => $result['btc'],
+    'portfolio' => $result['portfolio'] ?? null,
+    'fear_greed' => $result['fear_greed'] ?? null,
+    'auto_trade' => $auto,
     'duration_ms' => $result['duration_ms'],
     'errors' => $result['errors'],
 ]);
