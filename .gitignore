@@ -32,6 +32,7 @@ android/build/
 android/app/build/
 android/local.properties
 android/dist/
-*.apk
+# APK میلانو عمداً در مخزن می‌ماند (تحویل رسمی نسخهٔ اندروید)
+# *.apk
 *.aab
 *.keystore
