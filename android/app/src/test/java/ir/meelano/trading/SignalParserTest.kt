@@ -107,7 +107,7 @@ class SignalParserTest {
         val text = SignalText.build(signal)
         assertTrue(text.startsWith("<div dir=\"rtl\">"))
         assertTrue(text.contains("BTCUSDT"))
-        assertTrue(text.contains("62410.2"))
+        assertTrue(text.contains("62,410.2"))
         assertTrue(text.contains("65,032.75"))
         assertTrue(text.contains("Decision: <strong>ACCEPT</strong>"))
     }

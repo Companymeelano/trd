@@ -76,17 +76,20 @@ fun SettingsScreen(state: UiState, vm: TraderViewModel) {
                         onClick = vm::saveSettings,
                         modifier = Modifier.weight(1f)
                     )
-                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
                     OutlinedButton(
                         onClick = { vm.checkHealth() },
-                        enabled = !state.isBusy(TraderViewModel.BUSY_HEALTH)
+                        enabled = !state.isBusy(TraderViewModel.BUSY_HEALTH),
+                        modifier = Modifier.weight(1f)
                     ) {
                         Text(stringResource(R.string.action_health))
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     OutlinedButton(
                         onClick = { vm.checkAuth(showToast = true) },
-                        enabled = !state.isBusy(TraderViewModel.BUSY_AUTH)
+                        enabled = !state.isBusy(TraderViewModel.BUSY_AUTH),
+                        modifier = Modifier.weight(1f)
                     ) {
                         Text(stringResource(R.string.action_check_token))
                     }
