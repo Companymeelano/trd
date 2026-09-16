@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  آیکون تطبیقی (Adaptive Icon) — اندروید ۸+ و Themed Icons اندروید ۱۳+
+  لایه‌ها در هر چگالی به‌صورت PNG تولید می‌شوند (tools/build_icon.py).
+  Meelano Studio Design — Milad Yaghoobi
+-->
+<adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+    <background android:drawable="@mipmap/ic_launcher_background" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
+    <monochrome android:drawable="@mipmap/ic_launcher_monochrome" />
+</adaptive-icon>

@@ -1,0 +1,20 @@
+// پروژهٔ اندروید پنل هوشمند میلانو
+// Meelano Studio Design — Milad Yaghoobi
+pluginManagement {
+    repositories {
+        google()
+        mavenCentral()
+        gradlePluginPortal()
+    }
+}
+
+dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.PREFER_SETTINGS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+
+rootProject.name = "MeelanoTrader"
+include ':app'

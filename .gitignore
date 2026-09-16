@@ -1,0 +1,37 @@
+# ─── اسرار و تنظیمات حساس (هرگز کامیت نشود) ───────────────────────────────
+config/settings.php
+config/.app_key
+config/*.local.php
+config/secrets.php
+.env
+.env.*
+
+# ─── داده‌های زمان اجرا ────────────────────────────────────────────────────
+storage/uploads/*
+storage/cache/*
+storage/logs/*
+!storage/uploads/.gitkeep
+!storage/cache/.gitkeep
+!storage/logs/.gitkeep
+
+# ─── artifacts ────────────────────────────────────────────────────────────
+node_modules/
+vendor/
+composer.lock
+*.log
+*.sqlite
+*.db
+.DS_Store
+Thumbs.db
+*.bak
+*.swp
+
+# ─── خروجی ساخت اندروید ──────────────────────────────────────────────────
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/dist/
+*.apk
+*.aab
+*.keystore
