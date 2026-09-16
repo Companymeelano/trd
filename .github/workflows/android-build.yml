@@ -73,3 +73,22 @@ jobs:
           name: unit-test-report
           path: android/app/build/reports/tests/testDebugUnitTest
           if-no-files-found: ignore
+
+      # Best effort: the development sandbox cannot reach the Actions artifact
+      # hosts, so mirror the built APKs into the repo (deliver/apk) to hand them
+      # over. Skipped silently when the workflow token lacks write permission.
+      - name: Mirror APKs into deliver/apk (best effort)
+        if: success()
+        continue-on-error: true
+        working-directory: android
+        run: |
+          cd "${GITHUB_WORKSPACE}"
+          git config user.name "meelano-ci"
+          git config user.email "ci@users.noreply.github.com"
+          mkdir -p deliver/apk
+          cp android/app/build/outputs/apk/debug/app-debug.apk deliver/apk/meelano-trader-debug.apk
+          cp android/app/build/outputs/apk/release/app-release.apk deliver/apk/meelano-trader-release.apk
+          sha256sum deliver/apk/*.apk | tee deliver/apk/SHA256SUMS.txt
+          git add -f deliver/apk
+          git commit -m "ci: publish built APKs for delivery [skip ci]" || exit 0
+          git push origin "HEAD:${GITHUB_REF_NAME}" || exit 0
