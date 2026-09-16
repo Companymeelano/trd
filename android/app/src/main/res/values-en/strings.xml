@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">MeeLano Trader</string>
+    <string name="brand_title">MeeLano Trading Intelligence 4.0 Pro</string>
+    <string name="brand_subtitle">Multi-layer command system · technical, fundamental and risk analysis</string>
+    <string name="footer_note">Decision-support tool only; it does not guarantee profit or predict the market.</string>
+
+    <!-- Status chips -->
+    <string name="chip_core">Core</string>
+    <string name="chip_auth">Auth</string>
+    <string name="chip_market_api">Market API</string>
+    <string name="chip_sqlite">SQLite</string>
+
+    <!-- Tabs -->
+    <string name="tab_dashboard">Dashboard</string>
+    <string name="tab_analysis">4-Gate Analysis</string>
+    <string name="tab_market">Market Radar</string>
+    <string name="tab_journal">Journal &amp; Backtest</string>
+    <string name="tab_settings">Settings</string>
+
+    <!-- View headers -->
+    <string name="dashboard_title">Command Dashboard</string>
+    <string name="dashboard_subtitle">Live status, final decision and trade plan</string>
+    <string name="analysis_title">4-Gate Analysis Room</string>
+    <string name="analysis_subtitle">Quantitative, Technical, Sentiment and Risk review</string>
+    <string name="market_title">Market Radar &amp; Scanner</string>
+    <string name="market_subtitle">Bitcoin Guard and live symbol ranking</string>
+    <string name="journal_title">Journal &amp; Strategy Test</string>
+    <string name="journal_subtitle">Signal archive and historical engine evaluation</string>
+    <string name="settings_title">Control Center</string>
+    <string name="settings_subtitle">Server address, security token and alert channels</string>
+
+    <!-- Dashboard -->
+    <string name="card_decision">Final Decision</string>
+    <string name="label_decision">Decision</string>
+    <string name="label_score">Final Score</string>
+    <string name="label_confidence">Confidence</string>
+    <string name="label_rejected_by">Rejected By</string>
+    <string name="label_symbol">Symbol</string>
+    <string name="label_timeframe">Timeframe</string>
+    <string name="label_price">Last Price</string>
+    <string name="label_btc_guard">Bitcoin Guard</string>
+    <string name="label_order_book">Order Book Imbalance</string>
+    <string name="card_gates">Four Gates</string>
+    <string name="card_trade_plan">Trade Plan</string>
+    <string name="card_risk_monitor">Risk &amp; Position Monitor</string>
+    <string name="label_entry_zone">Entry Zone</string>
+    <string name="label_stop_loss">Stop Loss</string>
+    <string name="label_tp1">Target 1 (TP1)</string>
+    <string name="label_tp2">Target 2 (TP2)</string>
+    <string name="label_rr">Risk / Reward</string>
+    <string name="label_position_size">Suggested Size</string>
+    <string name="label_position_usd">Position Value (USDT)</string>
+    <string name="label_risk_amount">Cash Risk (USDT)</string>
+    <string name="label_max_risk_percent">Risk Per Trade</string>
+    <string name="label_risk_health">Risk Health</string>
+    <string name="card_warnings">Warnings &amp; Reasons</string>
+    <string name="card_data_quality">Data Quality</string>
+    <string name="label_provider">Provider</string>
+    <string name="label_stale">Stale Data</string>
+    <string name="label_candles">Candles</string>
+    <string name="label_request_time">Analysis Time</string>
+    <string name="empty_no_signal">No analysis yet. Analyse a symbol in the 4-Gate tab or load the demo signal in Settings.</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+
+    <!-- Analysis -->
+    <string name="field_symbol">Symbol</string>
+    <string name="field_timeframe">Timeframe</string>
+    <string name="field_capital">Capital (USDT) — optional</string>
+    <string name="field_risk">Risk per trade (max 1 percent)</string>
+    <string name="field_news">News Status</string>
+    <string name="news_normal">Normal</string>
+    <string name="news_cpi">CPI / High Impact</string>
+    <string name="action_analyze">Run full 4-gate analysis</string>
+    <string name="action_check_token">Verify token</string>
+    <string name="gate_quantitative">Quantitative</string>
+    <string name="gate_technical">Technical</string>
+    <string name="gate_sentiment">Sentiment / Macro</string>
+    <string name="gate_risk">Risk Management</string>
+    <string name="weight_quantitative">Weight 30</string>
+    <string name="weight_technical">Weight 35</string>
+    <string name="weight_sentiment">Weight 15</string>
+    <string name="weight_risk">Weight 20</string>
+    <string name="label_reasons">Gate reasons</string>
+    <string name="label_metrics">Metrics</string>
+    <string name="no_reasons">No reasons recorded.</string>
+    <string name="err_risk_range">Risk must be between 0.1 and 1 percent.</string>
+    <string name="err_capital_invalid">Capital must be a valid number greater than zero.</string>
+    <string name="err_symbol_invalid">Invalid symbol; uppercase letters and digits only (2-24 chars).</string>
+
+    <!-- Market -->
+    <string name="action_scan">Scan market</string>
+    <string name="label_quote">Quote asset</string>
+    <string name="card_ranking">Symbol ranking</string>
+    <string name="empty_scan">No scan data available.</string>
+    <string name="scan_note">The scan analyses 12 major symbols on the 1h timeframe and can take up to a minute.</string>
+    <string name="label_btc_status">Status</string>
+    <string name="label_btc_reason">Reason</string>
+    <string name="scan_tap_hint">Tap a symbol to analyse it.</string>
+
+    <!-- Journal + backtest -->
+    <string name="section_history">Signal history</string>
+    <string name="section_backtest">Strategy backtest</string>
+    <string name="action_load_history">Refresh history</string>
+    <string name="action_run_backtest">Run backtest</string>
+    <string name="empty_history">No records.</string>
+    <string name="label_win_rate">Win rate</string>
+    <string name="label_profit_factor">Profit Factor</string>
+    <string name="label_profit_pct">Net profit</string>
+    <string name="label_max_drawdown">Max drawdown</string>
+    <string name="label_total_trades">Trades</string>
+    <string name="label_final_equity">Final equity</string>
+    <string name="label_engine">Engine</string>
+    <string name="backtest_note">Backtest runs the 4-gate engine over the last 800 candles; fees and slippage are not modelled.</string>
+    <string name="empty_backtest">No backtest has been run yet.</string>
+
+    <!-- Settings -->
+    <string name="section_connection">Core connection</string>
+    <string name="section_notifications">Alert channels</string>
+    <string name="section_about">About</string>
+    <string name="field_base_url">Server address (e.g. https://your-domain.com/trader)</string>
+    <string name="field_api_token">Core API token (X-API-Token)</string>
+    <string name="field_tg_token">Telegram bot token</string>
+    <string name="field_tg_chat">Telegram chat ID</string>
+    <string name="field_webhook">Webhook URL (WhatsApp / custom server)</string>
+    <string name="action_save">Save settings</string>
+    <string name="action_health">Check core health</string>
+    <string name="action_test_notifications">Test alert</string>
+    <string name="action_send_signal">Send current signal</string>
+    <string name="action_demo">Load demo signal</string>
+    <string name="label_api_status">API</string>
+    <string name="label_db_status">Database</string>
+    <string name="label_version">Core version</string>
+    <string name="label_php">PHP</string>
+    <string name="label_config">Configuration</string>
+    <string name="label_pdo_sqlite">pdo_sqlite</string>
+    <string name="label_server_time">Server time</string>
+    <string name="warn_http">Traffic without HTTPS is not encrypted; the server address should start with https://.</string>
+    <string name="warn_token_local">The token is stored in this app private storage only and is excluded from cloud backups.</string>
+    <string name="warn_disabled_notify">Enter the Telegram bot token and chat ID (or a webhook URL) to send alerts.</string>
+    <string name="state_unknown">Not checked</string>
+    <string name="state_ok">Healthy</string>
+    <string name="state_bad">Error</string>
+
+    <!-- Messages -->
+    <string name="msg_settings_saved">Settings saved.</string>
+    <string name="msg_token_valid">Core token is valid.</string>
+    <string name="msg_token_invalid">Authentication failed; check the token.</string>
+    <string name="msg_demo_loaded">Demo signal loaded (offline preview).</string>
+    <string name="msg_analysis_done">4-gate analysis completed.</string>
+    <string name="msg_scan_done">Market scan completed.</string>
+    <string name="msg_backtest_done">Backtest completed.</string>
+    <string name="msg_history_done">History refreshed.</string>
+    <string name="msg_signal_sent">Signal sent successfully.</string>
+    <string name="msg_no_signal_to_send">Run an analysis first so there is a signal to send.</string>
+    <string name="msg_missing_config">Enter the server address and API token in Settings.</string>
+    <string name="msg_missing_token">Enter the core API token in Settings.</string>
+    <string name="err_timeout">The server did not respond in time. Try again.</string>
+    <string name="err_network">Could not reach the server.</string>
+    <string name="err_rate_limit">Rate limit reached; wait a moment.</string>
+    <string name="err_server">The core server returned an error.</string>
+    <string name="err_unauthorized">Invalid API token.</string>
+
+    <string name="cd_refresh">Refresh</string>
+    <string name="cd_send">Send</string>
+
+</resources>

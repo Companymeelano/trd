@@ -1,0 +1,7 @@
+# Extracted copy of the distributable zip — review/build scratch only.
+/_review/
+
+# Local build output / downloaded artifacts must stay out of git.
+/dist/
+*.apk
+*.aab
