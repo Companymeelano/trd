@@ -68,6 +68,7 @@ final class Context
             'vwap' => Indicators::vwap($highs, $lows, $closes, $volumes, 20),
             'roc24' => Indicators::roc($closes, 24),
             'er' => Indicators::kaufmanER($closes, 10),
+            'choppiness' => Indicators::choppiness($highs, $lows, $closes, 14),
         ];
     }
 
@@ -158,6 +159,12 @@ final class Context
                 Indicators::swingLow(array_slice($s['low'], 0, $i + 1), 20),
                 Indicators::swingHigh(array_slice($s['high'], 0, $i + 1), 20)
             ),
+            /* ── فیلدهای نسخهٔ ۵٫۴ (دقت پیشرفته) ───────────────────── */
+            'chop' => Indicators::at($s['choppiness'], $i) !== null ? round((float)Indicators::at($s['choppiness'], $i), 2) : null,
+            'ichimoku' => Indicators::ichimoku($s['high'], $s['low'], $i),
+            'candle_pattern' => Indicators::candlePattern($s['open'], $s['high'], $s['low'], $s['close'], $i),
+            'close_strength' => Indicators::closeStrength($s['high'], $s['low'], $s['close'], $i),
+
             // داده‌های بیرونی — با SignalEngine تزریق می‌شوند (در بک‌تست null)
             'rs_btc' => null,
             'funding_pct' => null,

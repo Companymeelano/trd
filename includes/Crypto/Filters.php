@@ -2,9 +2,9 @@
 namespace Meelano\Crypto;
 
 /**
- * زنجیرهٔ فیلترهای سخت‌گیرانهٔ کریپتو — نسخهٔ ۵٫۱ (هم‌گرایی وزن‌دار، ۲۵ شاهد).
+ * زنجیرهٔ فیلترهای سخت‌گیرانهٔ کریپتو — نسخهٔ ۵٫۴ (هم‌گرایی وزن‌دار، ۳۱ شاهد).
  *
- * فلسفه: به‌جای یک مدل تنها، ۲۵ شاهد مستقل در پنج لایهٔ اطلاعاتی رأی وزنی می‌دهند
+ * فلسفه: به‌جای یک مدل تنها، ۳۱ شاهد مستقل در شش لایهٔ اطلاعاتی رأی وزنی می‌دهند
  * و وزن هر شاهد به «رژیم بازار» وابسته است:
  *   ۱) تکنیکال کلاسیک (روند/مومنتوم/حجم/نوسان)
  *   ۲) ساختار بازار (Supertrend، ساختار، سویپ نقدینگی، FVG، POC)
@@ -81,6 +81,11 @@ final class Filters
         $stDir = $ctx['supertrend_dir'] !== null ? (int)$ctx['supertrend_dir'] : null;
         $obvSlope = $ctx['obv_slope'] !== null ? (float)$ctx['obv_slope'] : null;
         $vwap = $ctx['vwap'] !== null ? (float)$ctx['vwap'] : null;
+        $atrAbs = max(1e-9, (float)($ctx['atr'] ?? 0));
+        $chop = $ctx['chop'] !== null ? (float)$ctx['chop'] : null;
+        $ichi = is_array($ctx['ichimoku'] ?? null) ? $ctx['ichimoku'] : null;
+        $pattern = is_array($ctx['candle_pattern'] ?? null) ? $ctx['candle_pattern'] : null;
+        $clv = $ctx['close_strength'] !== null ? (float)$ctx['close_strength'] : null;
 
         /* ── ۱) نقدینگی: حجم ۲۴س (سخت، بدون جهت) ──────────────────── */
         $minVol = (float)($ctx['min_quote_volume'] ?? 5000000);
@@ -98,13 +103,29 @@ final class Filters
         $vote($f, $wTrend);
         $filters[] = $f;
 
-        /* ── ۳) مومنتوم RSI: منطقهٔ بهینه ─────────────────────────── */
-        $rsiBuy = $rsi >= 45 && $rsi <= 68;
-        $rsiSell = $rsi >= 70 || $rsi <= 30;
-        $f = $this->f('rsi', 'مومنتوم RSI در منطقهٔ بهینه', $rsiBuy || $rsiSell,
-            $rsiBuy ? 0.9 : ($rsi >= 75 ? 0.8 : ($rsiSell ? 0.55 : 0.2)),
+        /* ── ۳) مومنتوم RSI: منطقهٔ بهینه (رژیم‌آگاه — اصلاح v5.4) ── */
+        if ($isTrend) {
+            // روند: ادامه‌دار — اشباع فروش در روند نزولی = تأیید مومنتوم فروش
+            $rsiBuy = $rsi >= 45 && $rsi <= 68;
+            $rsiSell = $rsi >= 70 || $rsi <= 30;
+            $rsiScore = $rsiBuy ? 0.9 : ($rsi >= 75 ? 0.8 : ($rsiSell ? 0.55 : 0.2));
+            $rsiNote = 'روند: مومنتوم ادامه‌دار';
+        } elseif ($isRange) {
+            // رِنج: بازگشت به میانگین — اشباع فروش = فرصت خرید (نه فروش!)
+            $rsiBuy = $rsi <= 35 || ($rsi >= 45 && $rsi <= 62);
+            $rsiSell = $rsi >= 68;
+            $rsiScore = $rsi <= 35 ? 0.85 : ($rsi >= 68 ? 0.8 : (($rsi >= 45 && $rsi <= 62) ? 0.7 : 0.35));
+            $rsiNote = 'رِنج: بازگشت به میانگین';
+        } else {
+            // پرنوسان: محافظه‌کار
+            $rsiBuy = $rsi >= 45 && $rsi <= 65;
+            $rsiSell = $rsi >= 72 || $rsi <= 28;
+            $rsiScore = $rsiBuy ? 0.75 : ($rsiSell ? 0.6 : 0.3);
+            $rsiNote = 'پرنوسان: محافظه‌کار';
+        }
+        $f = $this->f('rsi', 'مومنتوم RSI در منطقهٔ بهینه', $rsiBuy || $rsiSell, $rsiScore,
             $rsiBuy ? 'BUY' : ($rsiSell ? 'SELL' : 'NEUTRAL'), $wRev,
-            'RSI(14): ' . round($rsi, 1) . ($isRange ? ' (منطقهٔ رِنج: بازگشت به میانگین)' : ''));
+            'RSI(14): ' . round($rsi, 1) . ' (' . $rsiNote . ')');
         $vote($f, $wRev);
         $filters[] = $f;
 
@@ -405,6 +426,114 @@ final class Filters
             if ($pocBuy || $pocSell) { $vote($f, 0.7); }
         } else {
             $f = $this->f('poc', 'گره حجم (POC)', true, 0.5, 'NEUTRAL', 0.7, 'پروفایل حجم کافی نیست.');
+        }
+        $filters[] = $f;
+
+
+        /* ═══ فیلترهای نسخهٔ ۵٫۴ — لایهٔ ششم: تأیید اجرا و ضدتعقیب ════ */
+
+        /* ── ۲۶) بریدگی بازار (Choppiness) — انرژی جهت‌دار واقعی ──── */
+        if ($chop !== null) {
+            if ($isTrend) {
+                $chopOk = $chop <= 55.0;
+                $chopScore = $chop <= 40.0 ? 0.85 : 0.6;
+                $chopDetail = 'CHOP=' . $chop . ' — ' . ($chopOk ? 'انرژی جهت‌دار کافی برای روند' : 'نویز بالا در دل روند — احتیاط');
+            } else {
+                $chopOk = $chop >= 35.0;
+                $chopScore = $chop >= 55.0 ? 0.8 : 0.6;
+                $chopDetail = 'CHOP=' . $chop . ' — ' . ($chopOk ? 'بازار بریده؛ منطق رِنج/میانگین معتبر' : 'فشردگی جهت‌دار — شکست در راه است');
+            }
+            $f = $this->f('choppiness', 'شاخص بریدگی بازار (CHOP)', $chopOk, $chopScore, 'NEUTRAL', 0.9, $chopDetail);
+        } else {
+            $f = $this->f('choppiness', 'شاخص بریدگی بازار (CHOP)', true, 0.5, 'NEUTRAL', 0.9, 'دادهٔ کافی نیست.');
+        }
+        $filters[] = $f;
+
+        /* ── ۲۷) ابر ایچیموکو — جهت‌نمای ساختاری نهادی ──────────────── */
+        if ($ichi !== null) {
+            $pAbove = $price > (float)$ichi['cloud_top'];
+            $pBelow = $price < (float)$ichi['cloud_bottom'];
+            $tAboveK = (float)$ichi['tenkan'] > (float)$ichi['kijun'];
+            $tBelowK = (float)$ichi['tenkan'] < (float)$ichi['kijun'];
+            $ichiBuy = $pAbove && $tAboveK;
+            $ichiSell = $pBelow && $tBelowK;
+            $f = $this->f('ichimoku', 'موقعیت ابر ایچیموکو', true,
+                $ichiBuy || $ichiSell ? 0.85 : 0.45,
+                $ichiBuy ? 'BUY' : ($ichiSell ? 'SELL' : 'NEUTRAL'), $wTrend,
+                'قیمت ' . ($pAbove ? 'بالای ابر' : ($pBelow ? 'زیر ابر' : 'داخل ابر'))
+                . ' · تنکان ' . ($tAboveK ? '>' : '<') . ' کیجون');
+            $vote($f, $wTrend);
+        } else {
+            $f = $this->f('ichimoku', 'موقعیت ابر ایچیموکو', true, 0.5, 'NEUTRAL', $wTrend, 'تاریخچهٔ کافی برای ابر نیست.');
+        }
+        $filters[] = $f;
+
+        /* ── ۲۸) ضدتعقیب: فاصلهٔ قیمت از EMA21 بر حسب ATR ───────────── */
+        $ext = ($price - $ema21) / $atrAbs;
+        if ((float)($ctx['atr'] ?? 0) > 0) {
+            $healthy = $ext >= -2.5 && $ext <= 3.0;
+            $stretched = ($ext > 3.0 && $ext <= 5.0) || ($ext < -2.5 && $ext >= -5.0);
+            $parabolic = $ext > 5.0 || $ext < -5.0;
+            if ($isTrend && $parabolic) {
+                // روندِ کشیده می‌تواند ادامه یابد — ولی کیفیت ورود پایین است
+                $extPass = true;
+                $extScore = 0.4;
+                $extDetail = 'کشیدگی ' . round($ext, 1) . ' ATR از EMA21 — روند معتبر ولی ورود پرریسک (پولبک بهتر است)';
+            } else {
+                $extPass = !$parabolic;
+                $extScore = $healthy ? 0.85 : ($stretched ? 0.55 : 0.25);
+                $extDetail = 'فاصله از EMA21: ' . round($ext, 1) . '× ATR — ' . ($healthy ? 'منطقهٔ سالم (پولبک/شروع موج)' : ($stretched ? 'کشیده — صبر برای پولبک منطقی‌تر است' : 'پارابولیک — تعقیب ممنوع'));
+            }
+            $f = $this->f('extension', 'ضدتعقیب (فاصله از EMA21)', $extPass, $extScore, 'NEUTRAL', 1.0, $extDetail);
+        } else {
+            $f = $this->f('extension', 'ضدتعقیب (فاصله از EMA21)', true, 0.5, 'NEUTRAL', 1.0, 'ATR در دسترس نیست.');
+        }
+        $filters[] = $f;
+
+        /* ── ۲۹) الگوی کندل تأیید (انگالفینگ/چکش/ستاره) ─────────────── */
+        if ($pattern !== null) {
+            $patSide = (string)$pattern['side'];
+            $f = $this->f('candle_pattern', 'الگوی کندل تأیید', true, 0.8, $patSide, 0.8,
+                (string)($pattern['detail'] ?? 'الگوی تأییدی'));
+            $vote($f, 0.8);
+        } else {
+            $f = $this->f('candle_pattern', 'الگوی کندل تأیید', true, 0.5, 'NEUTRAL', 0.8, 'الگوی تأییدی روی کندل بسته نیست.');
+        }
+        $filters[] = $f;
+
+        /* ── ۳۰) قدرت پایانهٔ کندل (CLV) — هیئت‌رسمی خرید/فروش ──────── */
+        if ($clv !== null) {
+            $clvBuy = $clv >= 0.65;
+            $clvSell = $clv <= 0.35;
+            $f = $this->f('close_strength', 'قدرت پایانهٔ کندل (CLV)', true,
+                $clvBuy ? 0.75 : ($clvSell ? 0.75 : 0.5),
+                $clvBuy ? 'BUY' : ($clvSell ? 'SELL' : 'NEUTRAL'), 0.7,
+                'میانگین محل بسته‌شدن: ' . round($clv * 100) . '٪ دامنهٔ کندل');
+            $vote($f, 0.7);
+        } else {
+            $f = $this->f('close_strength', 'قدرت پایانهٔ کندل (CLV)', true, 0.5, 'NEUTRAL', 0.7, 'دادهٔ کافی نیست.');
+        }
+        $filters[] = $f;
+
+        /* ── ۳۱) انسداد حجم (Volume Climax) — دام تعقیب اوج ──────────── */
+        if ($volRatio >= 4.0) {
+            if ($wickRatio >= 0.45) {
+                // انفجار حجم + سایهٔ بالا = اوج دمیده‌شده (blow-off)
+                $f = $this->f('climax', 'انسداد حجم (Climax)', true, 0.6, 'SELL', 0.7,
+                    'حجم ' . round($volRatio, 1) . '× با سایهٔ ' . round($wickRatio * 100) . '٪ — اوج دمیده‌شده، خطر واژگونی');
+                $vote($f, 0.7);
+            } elseif ($clv !== null && $clv <= 0.25) {
+                // انفجار حجم + بسته‌شدن در کف = تسلیم (capitulation)
+                $f = $this->f('climax', 'انسداد حجم (Climax)', true, 0.6, 'BUY', 0.7,
+                    'حجم ' . round($volRatio, 1) . '× با بسته‌شدن ' . round($clv * 100) . '٪ — فلش تسلیم؛ بازگشت محتمل');
+                $vote($f, 0.7);
+            } else {
+                $f = $this->f('climax', 'انسداد حجم (Climax)', false, 0.35, 'NEUTRAL', 0.7,
+                    'حجم ' . round($volRatio, 1) . '× میانگین — حجم غیرعادی؛ صبر برای تثبیت');
+            }
+        } else {
+            $f = $this->f('climax', 'انسداد حجم (Climax)', true, 0.85, 'NEUTRAL', 0.7,
+                'حجم ' . round($volRatio, 2) . '× — طبیعی');
         }
         $filters[] = $f;
 

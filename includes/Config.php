@@ -101,7 +101,7 @@ final class Config
                 'timeframes' => ['1h', '4h', '1d'],   // تأیید چند تایم‌فریمی
                 'scan_limit' => 40,
                 'min_quote_volume' => 5000000,
-                'min_filters_passed' => 17,            // از ۲۵ فیلتر
+                'min_filters_passed' => 17,            // حداقل مطلق؛ دروازهٔ تطبیقی ≥۶۲٪ کل ۳۱ فیلتر را هم اعمال می‌کند
                 'min_tech_score' => 62.0,
                 'min_combined_score' => 70.0,
                 'require_ai_agreement' => true,

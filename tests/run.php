@@ -155,7 +155,7 @@ $buyCtx = [
 ];
 $evalBuy = (new Filters())->evaluate($buyCtx);
 check('بافت صعودی → سمت BUY', $evalBuy['side'] === 'BUY', $evalBuy['side']);
-check('حداقل ۲۲ فیلتر از ۲۵ عبور کردند', $evalBuy['passed'] >= 22, $evalBuy['passed'] . '/' . $evalBuy['total']);
+check('حداقل ۲۶ فیلتر از ۳۱ عبور کردند', $evalBuy['passed'] >= 26, $evalBuy['passed'] . '/' . $evalBuy['total']);
 check('امتیاز تکنیکال بالای ۷۰', $evalBuy['tech_score'] >= 70, (string)$evalBuy['tech_score']);
 check('هم‌گرایی شمارش شده', $evalBuy['confluence'] >= 6, $evalBuy['confluence'] . '/' . $evalBuy['confluence_total']);
 
@@ -173,7 +173,11 @@ section('مدیریت ریسک');
 $rm = new RiskManager(['risk_per_trade_percent' => 1, 'atr_stop_multiplier' => 2, 'max_atr_stop_multiplier' => 3, 'max_position_percent' => 25]);
 $plan = $rm->plan('BUY', 100.0, 2.0, 80, ['swing_low' => 96.0, 'sizing_factor' => 1.0]);
 check('استاپ زیر ورود در خرید', $plan['stop_loss'] < 100.0);
-check('استاپ ساختاری انتخاب شد', $plan['stop_type'] === 'structure', $plan['stop_type']);
+check('سوئینگ دور → استاپ ATR با برچسب صادقانه (اصلاح v5.4)', $plan['stop_type'] === 'atr' && abs($plan['stop_loss'] - 96.0) < 0.001, $plan['stop_type'] . ' ' . $plan['stop_loss']);
+$planStruct = $rm->plan('BUY', 100.0, 2.0, 80, ['swing_low' => 98.0, 'sizing_factor' => 1.0]);
+check('سوئینگ نزدیک → استاپ ساختاری واقعی', $planStruct['stop_type'] === 'structure' && abs($planStruct['stop_loss'] - 97.5) < 0.001, $planStruct['stop_type'] . ' ' . $planStruct['stop_loss']);
+$planFloor = $rm->plan('BUY', 100.0, 2.0, 80, ['swing_low' => 99.7, 'sizing_factor' => 1.0]);
+check('کف حداقلی: استاپ تنگ‌تر از ۰٫۹ ATR نمی‌شود', abs($planFloor['stop_loss'] - (100.0 - 1.8)) < 0.001, (string)$planFloor['stop_loss']);
 check('تارگت‌ها بالای ورود و مرتب', $plan['take_profit_1'] > 100.0 && $plan['take_profit_2'] > $plan['take_profit_1'] && $plan['take_profit_3'] > $plan['take_profit_2']);
 check('R:R تارگت۲ ≈ ۲٫۵', abs($plan['risk_reward_2'] - 2.5) < 0.01, (string)$plan['risk_reward_2']);
 check('R:R تارگت۳ ≈ ۴', abs($plan['risk_reward_3'] - 4.0) < 0.01, (string)$plan['risk_reward_3']);
@@ -406,7 +410,7 @@ $findByKey = static function (array $eval, string $key) {
     foreach ($eval['filters'] as $f) { if ($f['key'] === $key) { return $f; } }
     return null;
 };
-check('مجموع فیلترها = ۲۵', $eval51['total'] === 25, $eval51['total'] . '');
+check('مجموع فیلترها = ۳۱', $eval51['total'] === 31, $eval51['total'] . '');
 check('فیلتر RS/BTC جهت خرید داد', ($findByKey($eval51, 'rs_btc')['side'] ?? '') === 'BUY');
 check('فیلتر فاندینگ افراطی = هشدار فروش', ($findByKey($eval51, 'funding')['side'] ?? '') === 'SELL');
 check('فیلتر ترس‌وطمع = خرید خلاف‌گردش', ($findByKey($eval51, 'fear_greed')['side'] ?? '') === 'BUY');
@@ -890,6 +894,89 @@ foreach ($ntMock->calls as $c) {
     if (strpos($c['url'], 'sendMessage') !== false && strpos(urldecode($c['options']['body'] ?? ''), 'بسته شد') !== false) { $lastTg = $c; }
 }
 check('پیام بستن شامل PnL است', $lastTg !== null && strpos(urldecode($lastTg['options']['body']), 'USDT') !== false);
+
+
+/* ═══ ۲۳) فیلترها و اندیکاتورهای v5.4 — لایهٔ تأیید اجرا ═══ */
+section('فیلترهای v5.4');
+
+// بریدگی: روند یکنواخت = CHOP پایین؛ زیگزاگ = CHOP بالا
+$chopSeries = Indicators::choppiness(
+    array_column($candles, 'high'), array_column($candles, 'low'), array_column($candles, 'close'), 14);
+$chopTrend = Indicators::last($chopSeries);
+check('CHOP در روند یکنواخت پایین است', $chopTrend !== null && (float)$chopTrend < 45, (string)$chopTrend);
+$zig = []; $zp = 100.0;
+for ($i = 0; $i < 80; $i++) { $zig[] = ['time' => $t + $i * 3600, 'open' => $zp, 'high' => $zp + 2.5, 'low' => $zp - 2.5, 'close' => $zp + ($i % 2 === 0 ? 2.0 : -2.0), 'volume' => 1000]; $zp += ($i % 2 === 0 ? 2.0 : -2.0); }
+$chopZig = Indicators::last(Indicators::choppiness(array_column($zig, 'high'), array_column($zig, 'low'), array_column($zig, 'close'), 14));
+check('CHOP در زیگزاگ بالا است', $chopZig !== null && (float)$chopZig > 55, (string)$chopZig);
+
+// ایچیموکو: در روند صعودی، قیمت بالای ابر و تنکان>کیجون
+$ichi = Indicators::ichimoku(array_column($candles, 'high'), array_column($candles, 'low'), count($candles) - 1);
+check('ایچیموکو محاسبه شد', is_array($ichi) && $ichi['cloud_top'] >= $ichi['cloud_bottom']);
+check('ایچیموکو در روند صعودی: قیمت بالای ابر', $ichi !== null && $candles[count($candles) - 1]['close'] > $ichi['cloud_top']);
+check('ایچیموکو: تنکان > کیجون در روند', $ichi !== null && $ichi['tenkan'] > $ichi['kijun']);
+check('ایچیموکو: تاریخ کم → null', Indicators::ichimoku(array_column($candles, 'high'), array_column($candles, 'low'), 50) === null);
+
+// الگوی کندل
+$patCandles = [
+    ['open' => 100, 'high' => 101, 'low' => 98.8, 'close' => 99.2, 'volume' => 100],   // نزولی
+    ['open' => 99.2, 'high' => 102.2, 'low' => 99.0, 'close' => 101.8, 'volume' => 200], // انگالفینگ صعودی
+];
+$pat = Indicators::candlePattern(array_column($patCandles, 'open'), array_column($patCandles, 'high'), array_column($patCandles, 'low'), array_column($patCandles, 'close'), 1);
+check('انگالفینگ صعودی شناخته شد', is_array($pat) && $pat['type'] === 'bullish_engulfing' && $pat['side'] === 'BUY', json_encode($pat));
+$hammer = Indicators::candlePattern([100, 99], [101, 99.6], [97, 97.2], [100, 99.4], 1);
+check('چکش/پین‌بار شناخته شد', is_array($hammer) && $hammer['type'] === 'hammer' && $hammer['side'] === 'BUY', json_encode($hammer));
+$star = Indicators::candlePattern([100, 100.4], [101, 103.0], [99.9, 100.2], [100.2, 100.5], 1);
+check('ستارهٔ ثاقب شناخته شد', is_array($star) && $star['type'] === 'shooting_star' && $star['side'] === 'SELL', json_encode($star));
+
+// قدرت پایانه
+$clvLast = Indicators::closeStrength(array_column($candles, 'high'), array_column($candles, 'low'), array_column($candles, 'close'), count($candles) - 1);
+check('CLV در روند صعودی بالای ۰٫۶', $clvLast !== null && $clvLast > 0.6, (string)$clvLast);
+check('CLV بین ۰ و ۱', $clvLast !== null && $clvLast >= 0 && $clvLast <= 1);
+
+// فیلترها: کلیدهای جدید در بافت صعودی
+$v54Ctx = $buyCtx + ['atr' => 1.7, 'chop' => 22.0,
+    'ichimoku' => ['tenkan' => 112, 'kijun' => 110, 'span_a' => 108, 'span_b' => 107, 'cloud_top' => 108, 'cloud_bottom' => 107],
+    'candle_pattern' => ['type' => 'bullish_engulfing', 'side' => 'BUY', 'detail' => 'انگالفینگ صعودی'],
+    'close_strength' => 0.82];
+$eval54 = (new Filters())->evaluate($v54Ctx);
+$g = static function (array $ev, string $key) { foreach ($ev['filters'] as $f) { if ($f['key'] === $key) { return $f; } } return null; };
+check('فیلتر بریدگی: CHOP پایین در روند = عبور', ($g($eval54, 'choppiness')['pass'] ?? false) === true && ($g($eval54, 'choppiness')['score'] ?? 0) >= 0.8);
+check('فیلتر ایچیموکو: خرید بالای ابر', ($g($eval54, 'ichimoku')['side'] ?? '') === 'BUY');
+check('فیلتر الگوی کندل: انگالفینگ خرید', ($g($eval54, 'candle_pattern')['side'] ?? '') === 'BUY');
+check('فیلتر CLV: قدرت خرید', ($g($eval54, 'close_strength')['side'] ?? '') === 'BUY');
+check('فیلتر ضدتعقیب: پولبک سالم عبور کرد', ($g($eval54, 'extension')['pass'] ?? false) === true && ($g($eval54, 'extension')['score'] ?? 0) >= 0.8);
+// پارابولیک در رِنج = رد
+$v54Para = $v54Ctx; $v54Para['price'] = 125; $v54Para['regime'] = 'range'; $v54Para['adx'] = 15;
+$evalPara = (new Filters())->evaluate($v54Para);
+check('ضدتعقیب: پارابولیک در رِنج رد می‌شود', ($g($evalPara, 'extension')['pass'] ?? true) === false);
+// پارابولیک در روند = عبور با امتیاز کمتر
+$v54ParaT = $v54Ctx; $v54ParaT['price'] = 125;
+$evalParaT = (new Filters())->evaluate($v54ParaT);
+check('ضدتعقیب: پارابولیک در روند عبور ولی با امتیاز پایین', ($g($evalParaT, 'extension')['pass'] ?? false) === true && ($g($evalParaT, 'extension')['score'] ?? 1) <= 0.45);
+
+// انسداد حجم: blow-off با سایه = فروش
+$v54Blow = $v54Ctx; $v54Blow['vol_ratio'] = 4.8; $v54Blow['wick_ratio'] = 0.55;
+$evalBlow = (new Filters())->evaluate($v54Blow);
+check('انسداد حجم: اوج دمیده‌شده = رأی فروش', ($g($evalBlow, 'climax')['side'] ?? '') === 'SELL');
+$v54Cap = $v54Ctx; $v54Cap['vol_ratio'] = 5.2; $v54Cap['wick_ratio'] = 0.1; $v54Cap['close_strength'] = 0.15;
+$evalCap = (new Filters())->evaluate($v54Cap);
+check('انسداد حجم: فلش تسلیم = رأی خرید', ($g($evalCap, 'climax')['side'] ?? '') === 'BUY');
+$v54Wait = $v54Ctx; $v54Wait['vol_ratio'] = 4.4; $v54Wait['wick_ratio'] = 0.2; $v54Wait['close_strength'] = 0.5;
+$evalWait = (new Filters())->evaluate($v54Wait);
+check('انسداد حجم: حجم غیرعادی مبهم = عدم عبور', ($g($evalWait, 'climax')['pass'] ?? true) === false);
+
+// RSI رژیم‌آگاه (اصلاح باگ v5.4)
+$v54Range = $v54Ctx; $v54Range['regime'] = 'range'; $v54Range['rsi'] = 25; $v54Range['adx'] = 15;
+$evalRangeRsi = (new Filters())->evaluate($v54Range);
+check('RSI ۲۵ در رِنج = خرید میانگین‌گرا (نه فروش)', ($g($evalRangeRsi, 'rsi')['side'] ?? '') === 'BUY');
+$v54Td = $v54Ctx; $v54Td['regime'] = 'trend_down'; $v54Td['rsi'] = 25;
+$evalTdRsi = (new Filters())->evaluate($v54Td);
+check('RSI ۲۵ در روند نزولی = تأیید مومنتوم فروش', ($g($evalTdRsi, 'rsi')['side'] ?? '') === 'SELL');
+check('RSI ۵۸ در روند صعودی = خرید (بدون پس‌رفت)', ($g($eval54, 'rsi')['side'] ?? '') === 'BUY');
+
+// نبود کلیدهای جدید = عبور خنثی
+$evalNoKeys = (new Filters())->evaluate($buyCtx);
+check('نبود دادهٔ v5.4 = عبور خنثی', ($g($evalNoKeys, 'ichimoku')['side'] ?? 'X') === 'NEUTRAL' && ($g($evalNoKeys, 'choppiness')['pass'] ?? false) === true);
 
 echo "\n════════════════════════════════════\nموفق: {$passed}   ناموفق: {$failed}\n";
 

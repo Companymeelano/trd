@@ -91,7 +91,9 @@ final class Backtest
                 $ctx['regime'] = $regime['regime'];
                 $eval = $filters->evaluate($ctx);
 
-                $passed = $eval['passed'] >= $minFilters && $eval['tech_score'] >= $minTech;
+                // آستانهٔ تطبیقی (v5.4): همیشه ≥ ۶۲٪ کل فیلترها — هم‌ارز موتور زنده
+                $needFilters = max($minFilters, (int)ceil($eval['total'] * 0.62));
+                $passed = $eval['passed'] >= $needFilters && $eval['tech_score'] >= $minTech;
                 if (!$passed) {
                     $i++;
                     continue;

@@ -50,21 +50,26 @@ final class RiskManager
             $structStop = (float)$extra['swing_low'] - $atr * $bufferMult;
             // استاپ ساختاری باید زیر ورود و نه عریض‌تر از سقف مجاز باشد
             if ($structStop < $entry && $structStop > $entry - $atr * $maxStopMult) {
-                $atrStop = max($atrStop, $structStop); // نزدیک‌تر به ورود = ریسک کمتر
-                $stopType = 'structure';
+                if ($structStop > $atrStop) { // فقط وقتی واقعاً تنگ‌تر است (اصلاح v5.4: برچسب صادقانه)
+                    $atrStop = $structStop;
+                    $stopType = 'structure';
+                }
             }
         } elseif (!$buy && !empty($extra['swing_high'])) {
             $structStop = (float)$extra['swing_high'] + $atr * $bufferMult;
             if ($structStop > $entry && $structStop < $entry + $atr * $maxStopMult) {
-                $atrStop = min($atrStop, $structStop);
-                $stopType = 'structure';
+                if ($structStop < $atrStop) {
+                    $atrStop = $structStop;
+                    $stopType = 'structure';
+                }
             }
         }
         $stop = $atrStop;
 
         /* ── ۲) نردبان تارگت بر پایهٔ R ─────────────────────────────── */
         $stopDistance = abs($entry - $stop);
-        $stopDistance = max($stopDistance, $entry * 0.004); // حداقل ۰٫۴٪
+        // کف حداقلی (اصلاح v5.4): استاپ تنگ‌تر از ۰٫۹ ATR یا ۰٫۵٪ قیمت = طعمهٔ نویز
+        $stopDistance = max($stopDistance, $entry * 0.005, $atr * 0.9);
         $stop = $buy ? $entry - $stopDistance : $entry + $stopDistance;
 
         $tp1 = $buy ? $entry + $stopDistance * 1.5 : $entry - $stopDistance * 1.5;

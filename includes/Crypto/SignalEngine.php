@@ -271,8 +271,8 @@ final class SignalEngine
             ],
         ];
 
-        /* ── دروازهٔ ۱: آستانه‌های سخت فیلترها ───────────────────────── */
-        if ($eval['passed'] < (int)($this->cfg['min_filters_passed'] ?? 17)
+        /* ── دروازهٔ ۱: آستانه‌های سخت فیلترها (تطبیقی v5.۴) ─────────── */
+        if ($eval['passed'] < $this->needFiltersPassed($eval['total'])
             || $eval['tech_score'] < (float)($this->cfg['min_tech_score'] ?? 62)) {
             return $base + ['is_signal' => false, 'reason' => 'عبور نکردن از آستانهٔ فیلترهای سخت‌گیرانه'];
         }
@@ -288,7 +288,10 @@ final class SignalEngine
                     $base['tech_score'] = $eval['tech_score'];
                     $base['passed'] = $eval['passed'];
                     $base['filters'] = $eval['filters'];
-                    if ($eval['passed'] < (int)($this->cfg['min_filters_passed'] ?? 17)) {
+                    $base['tech_side'] = $eval['side']; // اصلاح v5.4: جهت/هم‌گرایی هم تازه شوند
+                    $base['confluence'] = $eval['confluence'];
+                    $base['confluence_total'] = $eval['confluence_total'];
+                    if ($eval['passed'] < $this->needFiltersPassed($eval['total'])) {
                         return $base + ['is_signal' => false, 'reason' => 'بعد از ورود دادهٔ اوپن اینترست، فیلترها دیگر عبور نشدند'];
                     }
                 }
@@ -330,7 +333,8 @@ final class SignalEngine
             // دادهٔ کامل بافت — مستقیم روی سطح اول (نه تودرتو) تا مدل همه را ببیند
             $ctxKeys = ['rsi','macd_hist','ema9','ema21','ema50','ema200','bb_pos','stoch_k','stoch_d',
                 'adx','plus_di','minus_di','atr_pct','vol_ratio','obv_slope','vwap','structure',
-                'supertrend_dir','rs_btc','funding_pct','oi_trend_pct','fear_greed','div_rsi','sweep','fvg','poc','session'];
+                'supertrend_dir','rs_btc','funding_pct','oi_trend_pct','fear_greed','div_rsi','sweep','fvg','poc','session',
+                'chop','ichimoku','candle_pattern','close_strength'];
             $summary = $base + array_intersect_key($ctx, array_flip($ctxKeys)) + [
                 'risk_entry' => $riskPlan['entry'],
                 'risk_stop' => $riskPlan['stop_loss'],
@@ -409,6 +413,17 @@ final class SignalEngine
             'suppressed_reason' => $cooldown ? 'سیگنال مشابه همین نماد در ' . (int)($this->cfg['cooldown_hours'] ?? 12) . ' ساعت اخیر صادر شده است.' : null,
             'created_at' => date('Y-m-d H:i:s'),
         ];
+    }
+
+    /**
+     * آستانهٔ تطبیقی تعداد فیلتر عبوری (v5.4):
+     * حد پیکربندی + حداقل نسبی ۶۲٪ کل فیلترها — با افزودن شاهد جدید،
+     * دروازه به‌طور خودکار سخت‌گیرانه می‌ماند (نه سست‌تر).
+     */
+    private function needFiltersPassed(int $total): int
+    {
+        $cfgMin = (int)($this->cfg['min_filters_passed'] ?? 17);
+        return max($cfgMin, (int)ceil($total * 0.62));
     }
 
     /** عرض بازار از روی تیکرها: نسبت صعودی/نزولی و شدت حرکت. */

@@ -767,4 +767,145 @@ final class Indicators
         if ($prev <= 0) { return null; }
         return round(($last / $prev - 1) * 100, 2);
     }
+
+    /* ═══ اندیکاتورهای نسخهٔ ۵٫۴ (دقت پیشرفته) ═════════════════════════ */
+
+    /**
+     * شاخص بریدگی (Choppiness Index, 0..100) — کم = جهت‌دار، زیاد = پرنویز/رِنج.
+     * CHOP = 100 × log10(ΣTR / (maxHigh − minLow)) / log10(period)
+     */
+    public static function choppiness(array $highs, array $lows, array $closes, int $period = 14): array
+    {
+        $n = count($closes);
+        $out = array_fill(0, $n, null);
+        for ($i = $period; $i < $n; $i++) {
+            $sumTr = 0.0;
+            $hi = -INF;
+            $lo = INF;
+            for ($j = $i - $period + 1; $j <= $i; $j++) {
+                $prevClose = $j > 0 ? (float)$closes[$j - 1] : (float)$closes[$j];
+                $tr = max(
+                    (float)$highs[$j] - (float)$lows[$j],
+                    abs((float)$highs[$j] - $prevClose),
+                    abs((float)$lows[$j] - $prevClose)
+                );
+                $sumTr += $tr;
+                $hi = max($hi, (float)$highs[$j]);
+                $lo = min($lo, (float)$lows[$j]);
+            }
+            $range = $hi - $lo;
+            if ($sumTr > 0 && $range > 0) {
+                $out[$i] = round(100.0 * log10($sumTr / $range) / log10($period), 2);
+            }
+        }
+        return $out;
+    }
+
+    /** میانگین دونچین (سقف/کف دوره) — پایهٔ تنکان/کیجون/اسپن. */
+    private static function donchianMid(array $highs, array $lows, int $end, int $period): ?float
+    {
+        if ($end < $period - 1) {
+            return null;
+        }
+        $hi = -INF;
+        $lo = INF;
+        for ($j = $end - $period + 1; $j <= $end; $j++) {
+            $hi = max($hi, (float)$highs[$j]);
+            $lo = min($lo, (float)$lows[$j]);
+        }
+        return ($hi + $lo) / 2.0;
+    }
+
+    /**
+     * ایچیموکو در ایندکس i — بدون نشت آینده: ابرِ رسم‌شده روی i از
+     * داده‌های ≤ i−26 ساخته می‌شود (همان شیفت استاندارد ۲۶ کندله).
+     * @return array{tenkan:float,kijun:float,span_a:float,span_b:float,cloud_top:float,cloud_bottom:float}|null
+     */
+    public static function ichimoku(array $highs, array $lows, int $i): ?array
+    {
+        if ($i < 78) { // ۲۶ شیفت + ۵۲ عرض اسپن B
+            return null;
+        }
+        $tenkan = self::donchianMid($highs, $lows, $i, 9);
+        $kijun = self::donchianMid($highs, $lows, $i, 26);
+        $at = $i - 26; // نقطهٔ ساخت ابری که روی i رسم می‌شود
+        $tA = self::donchianMid($highs, $lows, $at, 9);
+        $kA = self::donchianMid($highs, $lows, $at, 26);
+        $spanB = self::donchianMid($highs, $lows, $at, 52);
+        if ($tenkan === null || $kijun === null || $tA === null || $kA === null || $spanB === null) {
+            return null;
+        }
+        $spanA = ($tA + $kA) / 2.0;
+        return [
+            'tenkan' => round($tenkan, 8),
+            'kijun' => round($kijun, 8),
+            'span_a' => round($spanA, 8),
+            'span_b' => round($spanB, 8),
+            'cloud_top' => round(max($spanA, $spanB), 8),
+            'cloud_bottom' => round(min($spanA, $spanB), 8),
+        ];
+    }
+
+    /**
+     * الگوی کندل تأیید در کندلِ بستهٔ i (انگالفینگ/چکش/ستارهٔ ثاقب).
+     * @return array{type:string,side:string,detail:string}|null
+     */
+    public static function candlePattern(array $opens, array $highs, array $lows, array $closes, int $i): ?array
+    {
+        if ($i < 1) {
+            return null;
+        }
+        $o = (float)$opens[$i];
+        $h = (float)$highs[$i];
+        $l = (float)$lows[$i];
+        $c = (float)$closes[$i];
+        $po = (float)$opens[$i - 1];
+        $pc = (float)$closes[$i - 1];
+        $range = $h - $l;
+        if ($range <= 0) {
+            return null;
+        }
+        $body = abs($c - $o);
+        $pBody = abs($pc - $po);
+        $upper = $h - max($o, $c);
+        $lower = min($o, $c) - $l;
+
+        // چکش/پین‌بار صعودی: سایهٔ پایین بلند + بدنهٔ کوچک بالا
+        if ($body > 0 && $lower >= $body * 2.0 && $lower >= $range * 0.55 && $upper <= $range * 0.2) {
+            return ['type' => 'hammer', 'side' => 'BUY', 'detail' => 'چکش/پین‌بار صعودی — ردِ عرضه در کف'];
+        }
+        // ستارهٔ ثاقب/پین‌بار نزولی
+        if ($body > 0 && $upper >= $body * 2.0 && $upper >= $range * 0.55 && $lower <= $range * 0.2) {
+            return ['type' => 'shooting_star', 'side' => 'SELL', 'detail' => 'ستارهٔ ثاقب — ردِ تقاضا در سقف'];
+        }
+        // انگالفینگ: بدنهٔ کندل، بدنهٔ مخالف قبل را کاملاً می‌بلعد
+        if ($c > $o && $pc < $po && $c >= $po && $o <= $pc && $body > $pBody) {
+            return ['type' => 'bullish_engulfing', 'side' => 'BUY', 'detail' => 'انگالفینگ صعودی'];
+        }
+        if ($c < $o && $pc > $po && $c <= $po && $o >= $pc && $body > $pBody) {
+            return ['type' => 'bearish_engulfing', 'side' => 'SELL', 'detail' => 'انگالفینگ نزولی'];
+        }
+        return null;
+    }
+
+    /**
+     * قدرت پایانهٔ کندل (Close Location Value) — کجا در دامنهٔ کندل بسته شد؟
+     * میانگین پنجرهٔ ۳ کندله: ~۱ = هیئت‌رسمی خرید، ~۰ = فروش.
+     */
+    public static function closeStrength(array $highs, array $lows, array $closes, int $i, int $window = 3): ?float
+    {
+        $vals = [];
+        for ($j = max(0, $i - $window + 1); $j <= $i; $j++) {
+            $h = (float)$highs[$j];
+            $l = (float)$lows[$j];
+            if ($h - $l <= 0) {
+                continue;
+            }
+            $vals[] = ((float)$closes[$j] - $l) / ($h - $l);
+        }
+        if (!$vals) {
+            return null;
+        }
+        return round(array_sum($vals) / count($vals), 3);
+    }
 }
