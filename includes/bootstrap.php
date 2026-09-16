@@ -13,8 +13,8 @@
 
 declare(strict_types=1);
 
-define('MEELANO_VERSION', '5.4.0');
-define('MEELANO_CODENAME', 'APEX TRADER · PRECISION');
+define('MEELANO_VERSION', '5.5.0');
+define('MEELANO_CODENAME', 'APEX TRADER · IRAN GATEWAY');
 
 if (!defined('MEELANO_ROOT')) {
     define('MEELANO_ROOT', dirname(__DIR__));

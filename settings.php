@@ -23,6 +23,10 @@ $public = Config::publicView();
 $providers = Registry::providers();
 $tasks = Registry::tasks();
 $routingMap = (array)Config::get('routing.map', []);
+$exchangeProvider = (string)Config::get('exchange.provider', 'binance');
+if (!\Meelano\Crypto\ConnectorFactory::isProvider($exchangeProvider)) {
+    $exchangeProvider = 'binance';
+}
 
 $db = Db::make();
 $dbOk = $db->isConnected();
@@ -52,6 +56,7 @@ m_layout_head('تنظیمات', 'settings');
     <button data-tab="ai"><i class="fa-solid fa-microchip"></i> هوش مصنوعی</button>
     <button data-tab="routing"><i class="fa-solid fa-route"></i> مسیریابی وظایف</button>
     <button data-tab="pricing"><i class="fa-solid fa-chart-line"></i> موتور سیگنال و ریسک</button>
+    <button data-tab="exchanges"><i class="fa-solid fa-plug-circle-bolt"></i> صرافی‌ها</button>
     <button data-tab="security"><i class="fa-solid fa-shield-halved"></i> امنیت</button>
 </div>
 
@@ -378,6 +383,65 @@ m_layout_head('تنظیمات', 'settings');
         این آستانه‌ها سخت‌گیری موتور را کنترل می‌کنند؛ مقادیر بالاتر = سیگنال کمتر اما خطای کمتر.
         پیش‌فرض‌ها برای بازار کریپتو محافظه‌کارانه تنظیم شده‌اند.
     </p>
+</section>
+
+<!-- ═══════════ تب صرافی‌ها (نسخهٔ ۵٫۵) ═══════════ -->
+<section class="tab-panel card-3d section" id="tab-exchanges" hidden>
+    <div class="section__head">
+        <h2 class="section__title"><i class="fa-solid fa-plug-circle-bolt" style="color:#fbbf24"></i> تنظیمات دقیق اتصال صرافی‌ها</h2>
+        <span class="help" style="margin:0">کلیدها رمزنگاری‌شده (AES-256-GCM) ذخیره می‌شوند</span>
+    </div>
+    <p class="help" style="margin:0 0 14px">
+        هر صرافی تنظیمات اختصاصی خودش را دارد: کلیدها را اینجا ذخیره کنید، با «تست اتصال» صحت را بررسی کنید و با «انتخاب» آن را صرافی فعالِ خرید/فروش خودکار قرار دهید.
+        فعال‌سازی معاملهٔ واقعی (قفل دومرحله‌ای) جداگانه از <a href="<?= meelano_e(m_url('trade.php')) ?>">صفحهٔ معامله</a> انجام می‌شود.
+    </p>
+    <?php foreach (\Meelano\Crypto\ConnectorFactory::providers() as $expid => $expm): ?>
+    <div class="card-3d section" style="padding:14px;margin-bottom:12px;border-color:rgba(148,163,184,.15)">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            <i class="<?= meelano_e($expm['icon']) ?>" style="font-size:20px;color:<?= meelano_e($expm['color']) ?>"></i>
+            <b style="font-size:14px"><?= meelano_e($expm['label_fa']) ?></b>
+            <span class="nt-dot" data-exs-dot="<?= meelano_e($expid) ?>" title="وضعیت کلیدها">•</span>
+            <span class="chip chip--pending" data-exs-active="<?= meelano_e($expid) ?>" style="font-size:10px" hidden>فعال</span>
+            <span class="help" style="margin:0;font-size:11px"><?= meelano_e($expm['quote']) ?></span>
+        </div>
+        <p class="help" style="margin:8px 0 10px;font-size:11.5px;line-height:1.9"><?= meelano_e($expm['help']) ?></p>
+        <div class="grid grid--4">
+            <div>
+                <label class="field-label"><?= meelano_e($expm['fields']['api_key']['label'] ?? 'API Key') ?></label>
+                <input type="<?= !empty($expm['fields']['api_key']['secret']) ? 'password' : 'text' ?>" class="mono" autocomplete="off"
+                       data-exs-key="<?= meelano_e($expid) ?>"
+                       placeholder="<?= meelano_e($expm['fields']['api_key']['ph'] ?? '') ?>">
+            </div>
+            <?php if (isset($expm['fields']['api_secret'])): ?>
+            <div>
+                <label class="field-label"><?= meelano_e($expm['fields']['api_secret']['label']) ?></label>
+                <input type="password" autocomplete="new-password"
+                       data-exs-secret="<?= meelano_e($expid) ?>"
+                       placeholder="<?= meelano_e($expm['fields']['api_secret']['ph'] ?? 'فقط اگر می‌خواهید عوض شود') ?>">
+            </div>
+            <?php else: ?>
+            <div></div>
+            <?php endif; ?>
+            <?php if (!empty($expm['has_mode'])): ?>
+            <div>
+                <label class="field-label">محیط اجرا</label>
+                <select data-exs-mode="<?= meelano_e($expid) ?>">
+                    <option value="testnet">Testnet (تست امن)</option>
+                    <option value="live">Live (واقعی)</option>
+                </select>
+            </div>
+            <?php else: ?>
+            <div></div>
+            <?php endif; ?>
+            <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
+                <button class="btn btn--indigo btn--sm" data-exs-save="<?= meelano_e($expid) ?>"><i class="fa-solid fa-key"></i> ذخیره</button>
+                <button class="btn btn--gold btn--sm" data-exs-test="<?= meelano_e($expid) ?>"><i class="fa-solid fa-satellite-dish"></i> تست اتصال</button>
+                <button class="btn btn--sm" data-exs-select="<?= meelano_e($expid) ?>"><i class="fa-solid fa-circle-check"></i> انتخاب</button>
+            </div>
+        </div>
+        <div data-exs-result="<?= meelano_e($expid) ?>" style="margin-top:10px"></div>
+    </div>
+    <?php endforeach; ?>
 </section>
 
 <!-- ═══════════ تب امنیت ═══════════ -->

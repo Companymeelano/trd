@@ -388,40 +388,96 @@
 
     /* ═══ صرافی ═════════════════════════════════════════════════════════ */
 
+    /* فرادادهٔ صرافی‌ها از سرور (در body تا JS سبک بماند) */
+    const EX_META = window.MEELANO_EX_META || {};
+
+    function currentProvider() {
+        const p = el('ex_provider');
+        return p ? p.value : 'binance';
+    }
+
+    function applyProviderUI() {
+        const pid = currentProvider();
+        const meta = EX_META[pid] || {};
+        document.querySelectorAll('[data-ex-card]').forEach(function (c) {
+            c.classList.toggle('is-active', c.getAttribute('data-ex-card') === pid);
+        });
+        const mb = el('ex_mode_box'); if (mb) { mb.hidden = pid !== 'binance'; }
+        const sb = el('ex_secret_box'); if (sb) { sb.hidden = pid === 'wallex'; }
+        const kh = el('ex_key');
+        if (kh) {
+            kh.type = meta.key_is_secret ? 'password' : 'text';
+            kh.placeholder = meta.key_ph || 'کلید عمومی صرافی';
+            const st = window.__exStatus;
+            if (st && st.providers && st.providers[pid] && st.providers[pid].api_key_masked) {
+                kh.placeholder = st.providers[pid].api_key_masked + ' (ذخیره شده — خالی بماند تا تغییر نکند)';
+            }
+        }
+        const sh = el('ex_secret');
+        if (sh) { sh.placeholder = meta.secret_ph || 'فقط اگر می‌خواهید عوض شود'; }
+        const help = el('ex_provider_help');
+        if (help) { help.innerHTML = meta.help ? '<i class="fa-solid fa-circle-info"></i> ' + meta.help : ''; }
+    }
+
     async function exchangeStatus() {
         try {
             const st = await M.api('api/exchange.php', { action: 'status' });
+            window.__exStatus = st;
             const chip = el('ex_status_chip');
             if (st.ok) {
                 if (st.live_enabled) {
                     chip.className = 'chip chip--bad';
-                    chip.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> معاملهٔ زنده فعال';
+                    chip.innerHTML = '<i class="fa-solid fa-circle-exclamation"></i> معاملهٔ زنده فعال (' + M.escapeHtml((st.providers && st.providers[st.provider] && st.providers[st.provider].label) || st.provider) + ')';
                     const off = el('btn_ex_live_off'); if (off) { off.hidden = false; }
                 } else if (st.keys_set) {
                     chip.className = 'chip chip--ok';
-                    chip.innerHTML = '<i class="fa-solid fa-plug-circle-check"></i> متصل (' + (st.mode === 'testnet' ? 'Testnet' : 'Live') + ')';
+                    chip.innerHTML = '<i class="fa-solid fa-plug-circle-check"></i> کلیدها ذخیره شده' + (st.provider === 'binance' ? ' (' + (st.mode === 'testnet' ? 'Testnet' : 'Live') + ')' : '');
                 } else {
                     chip.className = 'chip chip--pending';
                     chip.innerHTML = '<i class="fa-solid fa-plug-circle-xmark"></i> بدون کلید';
                 }
-                if (st.api_key_masked) {
-                    const k = el('ex_key'); if (k) { k.placeholder = st.api_key_masked + ' (ذخیره شده)'; }
-                }
-                const m = el('ex_mode'); if (m && st.mode) { m.value = st.mode; }
+                const sel = el('ex_provider');
+                if (sel && st.provider) { sel.value = st.provider; }
+                Object.keys(st.providers || {}).forEach(function (pid) {
+                    const p = st.providers[pid];
+                    const dot = document.querySelector('[data-ex-dot="' + pid + '"]');
+                    if (dot) {
+                        dot.className = 'nt-dot ' + (p.configured ? 'nt-dot--ok' : 'nt-dot--off');
+                        dot.title = p.configured ? 'کلیدها ذخیره شده' : 'بدون کلید';
+                    }
+                });
+                applyProviderUI();
             }
         } catch (err) { /* بی‌صدا */ }
+    }
+
+    async function selectProvider(pid) {
+        try {
+            const d = await M.api('api/exchange.php', { action: 'select', provider: pid });
+            if (d.ok) {
+                M.toast('صرافی فعال: ' + ((EX_META[pid] || {}).label_fa || pid), 'ok', 5000);
+                el('ex_key').value = '';
+                el('ex_secret').value = '';
+                exchangeStatus();
+            } else {
+                M.toast(d.error || 'تغییر صرافی ناموفق بود', 'bad', 6000);
+                exchangeStatus();
+            }
+        } catch (err) { M.toast(err.message, 'bad', 6000); }
     }
 
     async function saveExchangeKeys() {
         const btn = el('btn_ex_save');
         setBusy(btn, true, 'ذخیره…');
         try {
-            const data = await M.api('api/exchange.php', {
+            const payload = {
                 action: 'save_keys',
+                provider: currentProvider(),
                 api_key: el('ex_key').value.trim(),
                 api_secret: el('ex_secret').value.trim(),
-                mode: el('ex_mode').value,
-            });
+            };
+            if (currentProvider() === 'binance') { payload.mode = el('ex_mode').value; }
+            const data = await M.api('api/exchange.php', payload);
             M.toast(data.message || data.error, data.ok ? 'ok' : 'bad', 6500);
             if (data.ok) { el('ex_secret').value = ''; exchangeStatus(); }
         } catch (err) { M.toast(err.message, 'bad', 6000); }
@@ -433,7 +489,7 @@
         setBusy(btn, true, 'تست…');
         const box = el('ex_result');
         try {
-            const d = await M.api('api/exchange.php', { action: 'test' });
+            const d = await M.api('api/exchange.php', { action: 'test', provider: currentProvider() });
             let html = '';
             if (d.ok) {
                 html += '<div class="ex-ok"><i class="fa-solid fa-circle-check"></i> دسترسی به ' + M.escapeHtml(d.endpoint || '') + ' برقرار است — پینگ ' + M.toFa(d.ping_ms) + 'ms</div>';
@@ -498,6 +554,20 @@
         el('btn_ex_save').addEventListener('click', saveExchangeKeys);
         el('btn_ex_test').addEventListener('click', testExchange);
         el('btn_ex_live').addEventListener('click', enableLive);
+        const exSel = el('ex_provider');
+        if (exSel) {
+            exSel.addEventListener('change', function () { selectProvider(exSel.value); });
+        }
+        document.querySelectorAll('[data-ex-card]').forEach(function (card) {
+            card.addEventListener('click', function () {
+                const pid = card.getAttribute('data-ex-card');
+                if (el('ex_provider') && el('ex_provider').value !== pid) {
+                    el('ex_provider').value = pid;
+                    selectProvider(pid);
+                }
+            });
+        });
+        applyProviderUI();
         el('btn_ex_live_off').addEventListener('click', disableLive);
 
         loadState();

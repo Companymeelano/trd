@@ -22,6 +22,11 @@ $db = Db::make();
 $dbOk = $db->isConnected();
 $tablesOk = $dbOk && $db->tableExists('trade_accounts');
 
+$exchangeProvider = (string)Config::get('exchange.provider', 'binance');
+if (!\Meelano\Crypto\ConnectorFactory::isProvider($exchangeProvider)) {
+    $exchangeProvider = 'binance';
+}
+
 $auto = [
     'auto_trade_enabled' => (bool)Config::get('trading.auto_trade_enabled', false),
     'auto_mode' => (string)Config::get('trading.auto_mode', 'buy_sell'),
@@ -221,7 +226,7 @@ m_layout_head('معامله‌گر خودکار — میلانو | هوش معا
     <div id="trades_box"></div>
 </div>
 
-<!-- ═══ اتصال صرافی ═════════════════════════════════════════════ -->
+<!-- ═══ اتصال صرافی‌ها (بایننس + ایرانی) ═══════════════════════════ -->
 <div class="card-3d section" style="margin-top:18px;border-color:rgba(251,191,36,.3)">
     <div class="section__head">
         <h3 class="section__title"><i class="fa-solid fa-plug-circle-bolt" style="color:#fbbf24"></i> اتصال صرافی (معاملهٔ واقعی — اختیاری)</h3>
@@ -230,47 +235,50 @@ m_layout_head('معامله‌گر خودکار — میلانو | هوش معا
     <p class="help" style="margin:0 0 14px">
         <i class="fa-solid fa-shield-halved"></i>
         کلیدها فقط سمت سرور و <b>رمزنگاری‌شده (AES-256-GCM)</b> ذخیره می‌شوند و هرگز در خروجی API ظاهر نمی‌شوند.
-        برای تست امن، اول از <b>Testnet بایننس</b> (کلید رایگان از testnet.binance.vision) شروع کنید.
+        صرافی فعال را انتخاب کنید، کلیدها را ذخیره و <b>تست اتصال</b> بگیرید.
         معاملهٔ زنده پیش‌فرض <b>قفل</b> است و فعال‌سازی آن نیازمند تأیید دو مرحله‌ای است.
+        <b>نوبیتکس و والکس</b> برای کاربران ایرانی بدون محدودیت جغرافیایی قابل استفاده‌اند.
     </p>
-    <div class="grid grid--3" style="margin-bottom:14px">
-        <div class="ex-card is-active">
-            <i class="fa-brands fa-bitcoin" style="font-size:26px;color:#f7931a"></i>
-            <b>Binance Spot</b>
-            <span>خرید/فروش فوری · Testnet رسمی · فعال</span>
+    <div class="grid grid--3" style="margin-bottom:14px" id="ex_cards">
+        <?php $i = 0; foreach (\Meelano\Crypto\ConnectorFactory::providers() as $pid => $pm): $i++; ?>
+        <div class="ex-card<?= $pid === $exchangeProvider ? ' is-active' : '' ?>" data-ex-card="<?= meelano_e($pid) ?>" style="cursor:pointer">
+            <i class="<?= meelano_e($pm['icon']) ?>" style="font-size:24px;color:<?= meelano_e($pm['color']) ?>"></i>
+            <b><?= meelano_e($pm['label_fa']) ?></b>
+            <span data-ex-quote="<?= meelano_e($pid) ?>"><?= meelano_e($pm['quote']) ?></span>
+            <span class="nt-dot" data-ex-dot="<?= meelano_e($pid) ?>" title="وضعیت کلیدها" style="font-size:14px">•</span>
         </div>
-        <div class="ex-card is-soon">
-            <i class="fa-solid fa-bolt" style="font-size:22px"></i>
-            <b>Bybit</b>
-            <span>به‌زودی — همان قرارداد Connector</span>
-        </div>
-        <div class="ex-card is-soon">
-            <i class="fa-solid fa-cube" style="font-size:22px"></i>
-            <b>OKX</b>
-            <span>به‌زودی — همان قرارداد Connector</span>
-        </div>
+        <?php endforeach; ?>
     </div>
     <div class="grid grid--4">
         <div>
-            <label class="field-label" for="ex_key">API Key</label>
-            <input type="text" id="ex_key" class="mono" autocomplete="off" placeholder="کلید عمومی">
+            <label class="field-label" for="ex_provider">صرافی فعال</label>
+            <select id="ex_provider">
+                <?php foreach (\Meelano\Crypto\ConnectorFactory::providers() as $pid => $pm): ?>
+                <option value="<?= meelano_e($pid) ?>" <?= $pid === $exchangeProvider ? 'selected' : '' ?>><?= meelano_e($pm['label_fa']) ?></option>
+                <?php endforeach; ?>
+            </select>
         </div>
         <div>
-            <label class="field-label" for="ex_secret">API Secret</label>
+            <label class="field-label" for="ex_key">API Key / کلید عمومی</label>
+            <input type="text" id="ex_key" class="mono" autocomplete="off" placeholder="کلید عمومی صرافی انتخابی">
+        </div>
+        <div id="ex_secret_box">
+            <label class="field-label" for="ex_secret">API Secret / کلید خصوصی</label>
             <input type="password" id="ex_secret" autocomplete="new-password" placeholder="فقط اگر می‌خواهید عوض شود">
         </div>
-        <div>
-            <label class="field-label" for="ex_mode">محیط اجرا</label>
+        <div id="ex_mode_box">
+            <label class="field-label" for="ex_mode">محیط اجرا (فقط بایننس)</label>
             <select id="ex_mode">
                 <option value="testnet">Testnet (تست امن)</option>
                 <option value="live">Live (واقعی)</option>
             </select>
         </div>
-        <div style="display:flex;gap:8px;align-items:flex-end">
+        <div style="display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap">
             <button class="btn btn--indigo btn--sm" id="btn_ex_save"><i class="fa-solid fa-key"></i> ذخیرهٔ کلیدها</button>
             <button class="btn btn--gold btn--sm" id="btn_ex_test"><i class="fa-solid fa-satellite-dish"></i> تست اتصال</button>
         </div>
     </div>
+    <p class="help" id="ex_provider_help" style="margin:10px 0 0"></p>
     <div id="ex_result" style="margin-top:12px"></div>
     <div class="divider" style="margin:14px 0"></div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
@@ -287,4 +295,20 @@ m_layout_head('معامله‌گر خودکار — میلانو | هوش معا
 <?php m_layout_toasts(); ?>
 <?php m_layout_footer(); ?>
 </div>
+<script>
+<?php
+$exMeta = [];
+foreach (\Meelano\Crypto\ConnectorFactory::providers() as $pid => $pm) {
+    $exMeta[$pid] = [
+        'label_fa' => $pm['label_fa'],
+        'help' => $pm['help'],
+        'key_ph' => $pm['fields']['api_key']['ph'] ?? '',
+        'key_is_secret' => (bool)($pm['fields']['api_key']['secret'] ?? false),
+        'secret_ph' => $pm['fields']['api_secret']['ph'] ?? '',
+        'has_secret_field' => isset($pm['fields']['api_secret']),
+    ];
+}
+?>
+window.MEELANO_EX_META = <?= json_encode($exMeta, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?>;
+</script>
 <?php m_layout_foot(['assets/js/trade.js']); ?>

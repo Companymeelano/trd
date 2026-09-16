@@ -153,12 +153,16 @@ final class Config
                 'cron_key' => '',   // کلید اجرای کران ردیاب (api/tracker.php?action=run&key=…)
             ],
             'exchange' => [
-                'provider' => 'binance',        // binance (بقیه در نقشه راه)
-                'mode' => 'testnet',            // testnet | live
-                'api_key' => '',
+                'provider' => 'binance',        // binance | nobitex | wallex (نسخهٔ ۵٫۵)
+                'mode' => 'testnet',            // فقط بایننس: testnet | live
+                'api_key' => '',                // اعتبارنامهٔ بایننس (سطح اول)
                 'api_secret' => '',
                 'live_enabled' => false,        // معاملهٔ واقعی فقط با تأیید صریح
                 'receive_window' => 5000,
+                'providers' => [                // اعتبارنامهٔ صرافی‌های دیگر
+                    'nobitex' => ['api_key' => '', 'api_secret' => ''],
+                    'wallex' => ['api_key' => ''],
+                ],
             ],
             'notify' => [
                 'enabled' => false,             // کلید اصلی سامانهٔ اطلاع‌رسانی (نسخهٔ ۵٫۳)
@@ -289,6 +293,21 @@ final class Config
                 $data['exchange'][$secretField . '_masked'] = m_mask_secret((string)$data['exchange'][$secretField]);
                 $data['exchange'][$secretField . '_set'] = true;
                 $data['exchange'][$secretField] = '';
+            }
+        }
+        // رازهای صرافی‌های دیگر (نسخهٔ ۵٫۵)
+        if (is_array($data['exchange']['providers'] ?? null)) {
+            foreach ($data['exchange']['providers'] as $pid => $p) {
+                if (!is_array($p)) {
+                    continue;
+                }
+                foreach (['api_key', 'api_secret'] as $sf) {
+                    if (!empty($p[$sf])) {
+                        $data['exchange']['providers'][$pid][$sf . '_masked'] = m_mask_secret((string)$p[$sf]);
+                        $data['exchange']['providers'][$pid][$sf . '_set'] = true;
+                        $data['exchange']['providers'][$pid][$sf] = '';
+                    }
+                }
             }
         }
         // رازهای کانال‌های اطلاع‌رسانی (نسخهٔ ۵٫۳)

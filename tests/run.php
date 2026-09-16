@@ -22,10 +22,13 @@ use Meelano\Ai\Router;
 use Meelano\Config;
 use Meelano\Crypto\AiValidator;
 use Meelano\Crypto\Backtest;
+use Meelano\Crypto\ConnectorFactory;
 use Meelano\Crypto\Context;
 use Meelano\Crypto\Filters;
 use Meelano\Crypto\Indicators;
 use Meelano\Crypto\MarketData;
+use Meelano\Crypto\Nobitex;
+use Meelano\Crypto\Wallex;
 use Meelano\Crypto\AutoTrader;
 use Meelano\Crypto\BinanceSpot;
 use Meelano\Crypto\Regime;
@@ -734,6 +737,163 @@ check('سفارش بازار موفق + میانگین قیمت', $ord['ok'] && 
 $ordCall = $exMock3->calls[count($exMock3->calls) - 1];
 check('quoteOrderQty در سفارش ارسال شد', strpos($ordCall['url'], 'quoteOrderQty=100.00') !== false, $ordCall['url']);
 
+
+/* ═══ ۲۱-ب) صرافی‌های ایرانی — نوبیتکس و والکس (نسخهٔ ۵٫۵) ═══ */
+section('Exchange / صرافی‌های ایرانی');
+
+check('نوبیتکس: تفکیک BTCUSDT → btc/usdt', Nobitex::splitSymbol('BTCUSDT') === ['btc', 'usdt']);
+check('نوبیتکس: base64url بدون پدینگ رمزگشایی می‌شود', base64_decode(strtr('aGVsbG8', '-_', '+/') . '==') === 'hello');
+
+// امضای Ed25519 واقعی (فقط اگر libsodium روی مفسر هست)
+if (function_exists('sodium_crypto_sign_detached')) {
+    $nbKp = sodium_crypto_sign_seed_keypair(random_bytes(32));
+    $nbSecB64 = rtrim(strtr(base64_encode(sodium_crypto_sign_secretkey($nbKp)), '+/', '-_'), '=');
+    $nbSign = new Nobitex(null, ['api_key' => 'PUB', 'api_secret' => $nbSecB64]);
+    $nbSigT = $nbSign->signStringForTest('1710000000POST/market/orders/add{}');
+    check('نوبیتکس: امضای Ed25519 معتبر (libsodium)',
+        is_string($nbSigT) && sodium_crypto_sign_verify_detached($nbSigT, '1710000000POST/market/orders/add{}', sodium_crypto_sign_publickey($nbKp)));
+}
+
+// ping + تیکر عمومی
+$nbMock = new MockTransport();
+$nbMock->on('apiv2.nobitex.ir/market/stats', ['status' => 200, 'body' => json_encode(['status' => 'ok', 'stats' => ['btc-usdt' => ['latest' => '64000', 'bestBuy' => '64010', 'bestSell' => '63990', 'volumeSrc' => '12.5', 'dayLow' => '63000', 'dayHigh' => '64500', 'dayChange' => '1.2']]])]);
+$nb = new Nobitex($nbMock, []);
+check('نوبیتکس: ping موفق', $nb->ping()['ok'] === true);
+$nbTk = $nb->ticker('BTCUSDT');
+check('نوبیتکس: تیکر BTCUSDT = 64000', is_array($nbTk) && $nbTk['price'] === 64000.0, json_encode($nbTk, JSON_UNESCAPED_UNICODE));
+check('نوبیتکس: بهترین خرید/فروش', $nbTk['best_ask'] === 64010.0 && $nbTk['best_bid'] === 63990.0, json_encode($nbTk));
+
+// فراخوانی امضاشده — هدرها + قالب پیام امضا + موجودی
+$nbMock2 = new MockTransport();
+$nbMock2->on('apiv2.nobitex.ir/market/stats', ['status' => 200, 'body' => json_encode(['status' => 'ok', 'stats' => ['btc-usdt' => ['latest' => '64000', 'bestBuy' => '64010', 'bestSell' => '63990', 'volumeSrc' => '1', 'dayLow' => '63000', 'dayHigh' => '64500', 'dayChange' => '0.5']]])]);
+$nbMock2->on('apiv2.nobitex.ir/users/wallets/list', ['status' => 200, 'body' => json_encode(['status' => 'ok', 'wallets' => [
+    ['currency' => 'btc', 'activeBalance' => '0.5', 'blockedBalance' => '0.1'],
+    ['currency' => 'usdt', 'activeBalance' => '120.5', 'blockedBalance' => '0'],
+    ['currency' => 'rls', 'activeBalance' => '0', 'blockedBalance' => '0'],
+]])]);
+$nbMock2->on('apiv2.nobitex.ir/market/orders/add', ['status' => 200, 'body' => json_encode(['status' => 'ok', 'order' => ['id' => 99, 'status' => 'Done', 'matchedAmount' => '0.00155', 'averagePrice' => '64200', 'totalPrice' => '99.51', 'unmatchedAmount' => '0']])]);
+$nbPayloads = [];
+$nb2 = new Nobitex($nbMock2, ['api_key' => 'PUB123', 'api_secret' => 'PRIV',
+    'signer' => static function (string $p) use (&$nbPayloads) { $nbPayloads[] = $p; return 'TESTSIG'; }]);
+$nbBal = $nb2->balances();
+check('نوبیتکس: موجودی = فعال + مسدود', $nbBal['ok'] && ($nbBal['balances']['BTC'] ?? 0) === 0.6 && ($nbBal['balances']['USDT'] ?? 0) === 120.5, json_encode($nbBal, JSON_UNESCAPED_UNICODE));
+check('نوبیتکس: قالب پیام امضا = timestamp+METHOD+path+body', isset($nbPayloads[0]) && preg_match('/^\d{10}POST\/users\/wallets\/list$/', $nbPayloads[0]) === 1, $nbPayloads[0] ?? '-');
+check('نوبیتکس: هدرهای Nobitex-Key/Signature/Timestamp',
+    ($nbMock2->lastHeaders['Nobitex-Key'] ?? '') === 'PUB123'
+    && ($nbMock2->lastHeaders['Nobitex-Signature'] ?? '') === 'TESTSIG'
+    && preg_match('/^\d+$/', $nbMock2->lastHeaders['Nobitex-Timestamp'] ?? '') === 1);
+check('نوبیتکس: User-Agent بات الزامی', strpos($nbMock2->lastHeaders['User-Agent'] ?? '', 'TraderBot/') === 0);
+
+// سفارش بازار — خرید با quoteUsdt و فروش حجم مبنا
+$nbOrd = $nb2->marketOrder('BTCUSDT', 'BUY', 0.0, 100.0);
+check('نوبیتکس: سفارش بازار BUY موفق', $nbOrd['ok'] === true, json_encode($nbOrd, JSON_UNESCAPED_UNICODE));
+check('نوبیتکس: حجم/میانگین اجراشده', abs(($nbOrd['executed_qty'] ?? 0) - 0.00155) < 1e-12 && ($nbOrd['avg_price'] ?? 0) === 64200.0, json_encode($nbOrd, JSON_UNESCAPED_UNICODE));
+check('نوبیتکس: بدنهٔ سفارش buy/market/btc/usdt',
+    strpos($nbMock2->lastBody, '"type":"buy"') !== false
+    && strpos($nbMock2->lastBody, '"execution":"market"') !== false
+    && strpos($nbMock2->lastBody, '"srcCurrency":"btc"') !== false
+    && strpos($nbMock2->lastBody, '"dstCurrency":"usdt"') !== false, $nbMock2->lastBody);
+check('نوبیتکس: حجم = 100÷64000 به‌صورت رشتهٔ دقیق', strpos($nbMock2->lastBody, '"amount":"0.0015625"') !== false, $nbMock2->lastBody);
+$nbSell = $nb2->marketOrder('BTCUSDT', 'SELL', 0.00155, 0.0);
+check('نوبیتکس: سفارش SELL با حجم مبنا', $nbSell['ok'] === true && strpos($nbMock2->lastBody, '"type":"sell"') !== false, $nbMock2->lastBody);
+check('نوبیتکس: امضای سفارش هم پیام درست دارد', isset($nbPayloads[1]) && preg_match('/^\d{10}POST\/market\/orders\/add\{.*\}$/', $nbPayloads[1]) === 1, $nbPayloads[1] ?? '-');
+
+// والکس — بازار تومانی + نرخ USDTTMN
+check('والکس: BTCUSDT → BTCTMN', Wallex::toTmnSymbol('BTCUSDT') === 'BTCTMN');
+check('والکس: نماد خود USDT → USDTTMN', Wallex::toTmnSymbol('USDTUSDT') === 'USDTTMN');
+$wlMock = new MockTransport();
+$wlMock->on('api.wallex.ir/v1/markets', ['status' => 200, 'body' => json_encode(['message' => 'ok', 'success' => true, 'result' => [
+    ['symbol' => 'BTCTMN', 'lastPrice' => '6400000000'],
+    ['symbol' => 'USDTTMN', 'lastPrice' => '100000'],
+]])]);
+$wlMock->on('api.wallex.ir/v1/account/balances', ['status' => 200, 'body' => json_encode(['message' => 'ok', 'success' => true, 'result' => [
+    'TMN' => ['balance' => '1000000', 'blocked' => '0'],
+    'BTC' => ['balance' => '0.2', 'blocked' => '0'],
+]])]);
+$wlMock->on('api.wallex.ir/v1/account/orders', ['status' => 200, 'body' => json_encode(['message' => 'ok', 'success' => true, 'result' => [
+    'clientOrderId' => 'W-777', 'executedQty' => '0.0015625', 'executedPrice' => '6420000000', 'status' => 'FILLED',
+]])]);
+$wl = new Wallex($wlMock, ['api_key' => 'WTOKEN']);
+check('والکس: ping موفق', $wl->ping()['ok'] === true);
+$wlTk = $wl->ticker('BTCUSDT');
+check('والکس: تیکر تومانی → معادل USDT', is_array($wlTk) && $wlTk['price'] === 64000.0 && $wlTk['price_tmn'] === 6400000000.0, json_encode($wlTk));
+$wlBal = $wl->balances();
+check('والکس: موجودی TMN/BTC', $wlBal['ok'] && ($wlBal['balances']['TMN'] ?? 0) === 1000000.0 && ($wlBal['balances']['BTC'] ?? 0) === 0.2, json_encode($wlBal, JSON_UNESCAPED_UNICODE));
+check('والکس: معادل USDT موجودی تومانی', abs(($wlBal['balances']['USDT'] ?? 0) - 10.0) < 1e-9, (string)($wlBal['balances']['USDT'] ?? -1));
+$wlOrd = $wl->marketOrder('BTCUSDT', 'BUY', 0.0, 100.0);
+check('والکس: سفارش MARKET تومانی موفق + میانگین USDT', $wlOrd['ok'] === true && ($wlOrd['avg_price'] ?? 0) === 64200.0, json_encode($wlOrd, JSON_UNESCAPED_UNICODE));
+check('والکس: بدنهٔ سفارش symbol/type/side/quantity',
+    strpos($wlMock->lastBody, '"symbol":"BTCTMN"') !== false
+    && strpos($wlMock->lastBody, '"type":"MARKET"') !== false
+    && strpos($wlMock->lastBody, '"side":"BUY"') !== false
+    && strpos($wlMock->lastBody, '"quantity":0.0015625') !== false, $wlMock->lastBody);
+check('والکس: هدر x-api-key ارسال شد', ($wlMock->lastHeaders['x-api-key'] ?? '') === 'WTOKEN');
+
+// کارخانهٔ صرافی‌ها
+$provList = ConnectorFactory::providers();
+check('کارخانه: بایننس/نوبیتکس/والکس ثبت شده', count($provList) === 3 && isset($provList['binance'], $provList['nobitex'], $provList['wallex']));
+check('کارخانه: صرافی ناشناخته رد می‌شود', ConnectorFactory::isProvider('nobitex') && !ConnectorFactory::isProvider('bitpin'));
+$mkN = ConnectorFactory::make(null, ['provider' => 'nobitex', 'providers' => ['nobitex' => ['api_key' => 'K', 'api_secret' => 'S']]]);
+check('کارخانه: کانکتور نوبیتکس از پیکربندی', $mkN[0] instanceof Nobitex && $mkN[1] === null);
+$mkW = ConnectorFactory::make(null, ['provider' => 'wallex', 'providers' => ['wallex' => ['api_key' => 'T']]]);
+check('کارخانه: کانکتور والکس از پیکربندی', $mkW[0] instanceof Wallex && $mkW[1] === null);
+$mkB = ConnectorFactory::make(null, ['provider' => 'binance', 'api_key' => 'k', 'api_secret' => 's', 'mode' => 'testnet']);
+check('کارخانه: بایننس همچنان پیش‌فرض', $mkB[0] instanceof BinanceSpot);
+$mkX = ConnectorFactory::make(null, ['provider' => 'xyz']);
+check('کارخانه: خطای صرافی نامعتبر', $mkX[0] === null && is_string($mkX[1]));
+check('کارخانه: اعتبارنامهٔ per-exchange جدا خوانده می‌شود',
+    ConnectorFactory::credentials('nobitex', ['provider' => 'nobitex', 'providers' => ['nobitex' => ['api_key' => 'NK', 'api_secret' => 'NS']]]) === ['api_key' => 'NK', 'api_secret' => 'NS']);
+
+// ماسک شدن رازهای صرافی‌های ایرانی در خروجی عمومی
+Config::set('exchange.providers.nobitex.api_key', 'NKEY123456789');
+Config::set('exchange.providers.nobitex.api_secret', 'NSEC123456789');
+Config::set('exchange.providers.wallex.api_key', 'WTOK123456789');
+$pv55 = Config::publicView();
+$pvEx55 = (array)($pv55['exchange']['providers'] ?? []);
+check('امنیت: کلید عمومی/خصوصی نوبیتکس در خروجی عمومی ماسک شد',
+    ($pvEx55['nobitex']['api_secret'] ?? 'x') === '' && !empty($pvEx55['nobitex']['api_secret_set']) && ($pvEx55['nobitex']['api_key'] ?? 'x') === '');
+check('امنیت: توکن والکس در خروجی عمومی ماسک شد',
+    ($pvEx55['wallex']['api_key'] ?? 'x') === '' && !empty($pvEx55['wallex']['api_key_set']));
+Config::set('exchange.providers.nobitex.api_key', '');
+Config::set('exchange.providers.nobitex.api_secret', '');
+Config::set('exchange.providers.wallex.api_key', '');
+
+// معاملهٔ زندهٔ خودکار از طریق کانکتور نوبیتکس (هم‌ارزی کامل با بایننس)
+$lvFile = tempnam(sys_get_temp_dir(), 'mlnlive') . '.sqlite'; @unlink($lvFile);
+$lvDb = Db::make(['driver' => 'sqlite', 'sqlite_path' => $lvFile]);
+(new Installer($lvDb))->run();
+$lvMock = new MockTransport();
+$lvMock->on('apiv2.nobitex.ir/market/stats', ['status' => 200, 'body' => json_encode(['status' => 'ok', 'stats' => ['btc-usdt' => ['latest' => '64000', 'bestBuy' => '64010', 'bestSell' => '63990', 'volumeSrc' => '9', 'dayLow' => '63000', 'dayHigh' => '64500', 'dayChange' => '1.0']]])]);
+$lvMock->on('apiv2.nobitex.ir/market/orders/add', ['status' => 200, 'body' => json_encode(['status' => 'ok', 'order' => ['id' => 555, 'status' => 'Done', 'matchedAmount' => '0.00155', 'averagePrice' => '64200', 'totalPrice' => '99.51', 'unmatchedAmount' => '0']])]);
+$lvConn = new Nobitex($lvMock, ['api_key' => 'PUB', 'api_secret' => 'PRIV',
+    'signer' => static function (string $p) { return 'LV-SIG'; }]);
+$lvTrader = new AutoTrader($lvDb, new MarketData($lvMock), $lvConn, ($baseCfg ?? []) + [
+    'auto_trade_enabled' => true, 'auto_mode' => 'buy_sell', 'auto_dry_run' => false,
+    'auto_amount_mode' => 'fixed', 'auto_amount_fixed' => 100.0, 'auto_max_open_positions' => 3,
+    'auto_min_tier' => 'C', 'auto_min_combined' => 0, 'auto_honor_stop' => true,
+    'auto_close_on_opposite' => true, 'paper_initial_usdt' => 1000.0,
+]);
+$lvTrader->reset(1000.0);
+$lvDb->update('trade_accounts', ['mode' => 'live'], 'id = 1');
+Config::set('exchange.provider', 'nobitex');
+Config::set('exchange.live_enabled', true);
+$lvSig = [
+    'symbol' => 'BTCUSDT', 'side' => 'BUY', 'tier' => 'A+', 'regime' => 'trend_up', 'combined_score' => 88,
+    'price' => 64000.0,
+    'risk' => ['entry' => 64000.0, 'stop_loss' => 62800.0, 'take_profit_1' => 66000.0, 'take_profit_2' => 67500.0, 'take_profit_3' => 69000.0],
+];
+$lvOpen = $lvTrader->openPosition($lvSig, 'auto');
+check('زرنده: خرید خودکار روی نوبیتکس اجرا شد', !empty($lvOpen['ok']), json_encode($lvOpen, JSON_UNESCAPED_UNICODE));
+check('زرنده: قیمت ورود = میانگین اجرای واقعی صرافی', isset($lvOpen['position']) && abs((float)$lvOpen['position']['entry_price'] - 64200.0) < 1e-9, json_encode($lvOpen['position'] ?? null, JSON_UNESCAPED_UNICODE));
+check('زرنده: حجم پوزیشن = مقدار اجراشدهٔ صرافی', isset($lvOpen['position']) && abs((float)$lvOpen['position']['quantity'] - 0.00155) < 1e-12, json_encode($lvOpen['position'] ?? null, JSON_UNESCAPED_UNICODE));
+check('زرنده: بدنهٔ سفارش خرید امضاشده ارسال شد', strpos($lvMock->lastBody, '"type":"buy"') !== false && ($lvMock->lastHeaders['Nobitex-Key'] ?? '') === 'PUB');
+$lvPosId = (int)($lvOpen['position']['id'] ?? 0);
+$lvClose = $lvTrader->closePosition($lvPosId, 'take_profit', 66000.0);
+check('زرنده: فروش خودکار روی نوبیتکس اجرا شد', !empty($lvClose['ok']), json_encode($lvClose, JSON_UNESCAPED_UNICODE));
+check('زرنده: سفارش فروش با حجم پوزیشن', strpos($lvMock->lastBody, '"type":"sell"') !== false && strpos($lvMock->lastBody, '"amount":"0.00155"') !== false, $lvMock->lastBody);
+Config::set('exchange.live_enabled', false);
+Config::set('exchange.provider', 'binance');
+@unlink($lvFile);
 
 /* ═══ ۲۲) اطلاع‌رسانی چندکاناله (نسخهٔ ۵٫۳) ═══ */
 section('Notifier / اطلاع‌رسانی');

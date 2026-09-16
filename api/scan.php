@@ -63,15 +63,19 @@ $auto = null;
 $notify = null;
 try {
     $notifier = null;
+    $liveConn = null;
     if ($db !== null && $db->tableExists('notify_log') && (bool)Config::get('notify.enabled', false)) {
         $notifier = new \Meelano\Crypto\Notifier($db);
+    }
+    if ($db !== null && (bool)Config::get('exchange.live_enabled', false)) {
+        $liveConn = \Meelano\Crypto\ConnectorFactory::make()[0]; // صرافی فعال (۵٫۵)
     }
     if ($db !== null && $db->tableExists('trade_accounts')
         && (bool)Config::get('trading.auto_trade_enabled', false)) {
         $auto = (new \Meelano\Crypto\AutoTrader(
             $db,
             new MarketData(null, $marketCfg),
-            null,
+            $liveConn,
             array_merge((array)Config::get('trading', []), (array)Config::get('market', [])),
             $notifier
         ))->afterScan($result['signals']);

@@ -33,12 +33,17 @@ if (!$db->tableExists('trade_accounts')) {
 
 $cfg = array_merge((array)Config::get('trading', []), (array)Config::get('market', []));
 $notifier = null;
+$liveConn = null;
 try {
     if ($db->tableExists('notify_log') && (bool)Config::get('notify.enabled', false)) {
         $notifier = new \Meelano\Crypto\Notifier($db);
     }
-} catch (Throwable $e) { /* اطلاع‌رسانی اختیاری است */ }
-$trader = new AutoTrader($db, new MarketData(null, (array)Config::get('market', [])), null, $cfg, $notifier);
+    if ((bool)Config::get('exchange.live_enabled', false)) {
+        // صرافی فعال (بایننس/نوبیتکس/والکس) — فقط وقتی معاملهٔ زنده باز شده است
+        $liveConn = \Meelano\Crypto\ConnectorFactory::make()[0];
+    }
+} catch (Throwable $e) { /* اتصال زنده اختیاری است */ }
+$trader = new AutoTrader($db, new MarketData(null, (array)Config::get('market', [])), $liveConn, $cfg, $notifier);
 
 switch ($action) {
     case 'reset':

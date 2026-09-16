@@ -14,12 +14,18 @@ final class MockTransport implements Transport
     private $seqPos = [];
     /** @var array<int,array> */
     public $calls = [];
+    /** @var string آخرین بدنهٔ ارسالی */
+    public $lastBody = '';
+    /** @var array آخرین هدرهای ارسالی */
+    public $lastHeaders = [];
 
-    public function on(string $urlPattern, array $response): self
+    /**
+     * @param array|\Closure $response پاسخ ثابت یا Closure(array $req): array
+     *                                (req = method/url/options برای پاسخ پویا)
+     */
+    public function on(string $urlPattern, $response): self
     {
-        $this->responses[$urlPattern] = array_merge([
-            'status' => 200, 'body' => '{}', 'headers' => [], 'error' => '', 'elapsed_ms' => 5.0,
-        ], $response);
+        $this->responses[$urlPattern] = $response;
         return $this;
     }
 
@@ -34,6 +40,8 @@ final class MockTransport implements Transport
     public function request(string $method, string $url, array $options = []): array
     {
         $this->calls[] = ['method' => $method, 'url' => $url, 'options' => $options];
+        $this->lastBody = (string)($options['body'] ?? '');
+        $this->lastHeaders = (array)($options['headers'] ?? []);
         foreach ($this->sequences as $pattern => $responses) {
             if (strpos($url, $pattern) !== false) {
                 $i = $this->seqPos[$pattern]++;
@@ -44,7 +52,12 @@ final class MockTransport implements Transport
         }
         foreach ($this->responses as $pattern => $response) {
             if (strpos($url, $pattern) !== false) {
-                return $response;
+                if ($response instanceof \Closure) {
+                    $response = (array)$response(['method' => $method, 'url' => $url, 'options' => $options]);
+                }
+                return array_merge([
+                    'status' => 200, 'body' => '{}', 'headers' => [], 'error' => '', 'elapsed_ms' => 5.0,
+                ], $response);
             }
         }
         return ['status' => 404, 'body' => '{"error":"no mock for ' . $url . '"}', 'headers' => [], 'error' => '', 'elapsed_ms' => 1.0];

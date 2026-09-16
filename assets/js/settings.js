@@ -488,12 +488,103 @@
         }
     }
 
+    /* ── صرافی‌ها (نسخهٔ ۵٫۵) ────────────────────────────────────────── */
+
+    async function exsStatus() {
+        try {
+            const st = await M.api('api/exchange.php', { action: 'status' });
+            if (!st.ok) { return; }
+            Object.keys(st.providers || {}).forEach((pid) => {
+                const p = st.providers[pid];
+                const dot = document.querySelector('[data-exs-dot="' + pid + '"]');
+                if (dot) {
+                    dot.className = 'nt-dot ' + (p.configured ? 'nt-dot--ok' : 'nt-dot--off');
+                    dot.title = p.configured ? 'کلیدها ذخیره شده' : 'بدون کلید';
+                }
+                const act = document.querySelector('[data-exs-active="' + pid + '"]');
+                if (act) {
+                    const isOn = st.provider === pid;
+                    act.hidden = !isOn;
+                    act.className = 'chip chip--' + (isOn ? 'ok' : 'pending');
+                }
+                const key = document.querySelector('[data-exs-key="' + pid + '"]');
+                if (key && p.api_key_masked) {
+                    key.placeholder = p.api_key_masked + ' (ذخیره شده — خالی بماند تا تغییر نکند)';
+                }
+                const mode = document.querySelector('[data-exs-mode="' + pid + '"]');
+                if (mode && pid === st.provider) { mode.value = st.mode; }
+            });
+        } catch (err) { /* بی‌صدا */ }
+    }
+
+    async function exsSave(pid) {
+        const btn = document.querySelector('[data-exs-save="' + pid + '"]');
+        setBusy(btn, true, 'ذخیره…');
+        try {
+            const payload = { action: 'save_keys', provider: pid, api_key: '', api_secret: '' };
+            const key = document.querySelector('[data-exs-key="' + pid + '"]');
+            const sec = document.querySelector('[data-exs-secret="' + pid + '"]');
+            const mode = document.querySelector('[data-exs-mode="' + pid + '"]');
+            if (key) { payload.api_key = key.value.trim(); }
+            if (sec) { payload.api_secret = sec.value.trim(); }
+            if (mode && pid === 'binance') { payload.mode = mode.value; }
+            const d = await M.api('api/exchange.php', payload);
+            M.toast(d.message || d.error, d.ok ? 'ok' : 'bad', 6500);
+            if (d.ok) {
+                if (key) { key.value = ''; }
+                if (sec) { sec.value = ''; }
+                exsStatus();
+            }
+        } catch (err) { M.toast(err.message, 'bad', 6000); }
+        finally { setBusy(btn, false); }
+    }
+
+    async function exsTest(pid) {
+        const btn = document.querySelector('[data-exs-test="' + pid + '"]');
+        const box = document.querySelector('[data-exs-result="' + pid + '"]');
+        setBusy(btn, true, 'تست…');
+        try {
+            const d = await M.api('api/exchange.php', { action: 'test', provider: pid });
+            let html = '';
+            if (d.ok) {
+                html += '<div class="ex-ok"><i class="fa-solid fa-circle-check"></i> دسترسی برقرار است — پینگ ' + M.toFa(d.ping_ms) + 'ms</div>';
+                if (d.balance && !d.balance.error) {
+                    html += '<div class="ex-ok"><i class="fa-solid fa-wallet"></i> موجودی USDT: <b>' + M.toFa(d.balance.USDT) + '</b> · ' + M.toFa(d.balance.assets || 0) + ' دارایی</div>';
+                } else if (d.balance_error) {
+                    html += '<div class="ex-warn"><i class="fa-solid fa-triangle-exclamation"></i> کلیدها ذخیره‌اند اما حساب خوانده نشد: ' + M.escapeHtml(d.balance_error) + '</div>';
+                } else if (!d.keys_set) {
+                    html += '<div class="ex-warn"><i class="fa-solid fa-key"></i> کلید ذخیره نشده — فقط دسترسی عمومی تست شد.</div>';
+                }
+            } else {
+                html += '<div class="ex-warn"><i class="fa-solid fa-circle-xmark"></i> ' + M.escapeHtml(d.error || 'اتصال ناموفق') + '</div>';
+            }
+            box.innerHTML = html;
+        } catch (err) {
+            box.innerHTML = '<div class="ex-warn">خطا: ' + M.escapeHtml(err.message) + '</div>';
+        } finally { setBusy(btn, false); }
+    }
+
+    async function exsSelect(pid) {
+        const btn = document.querySelector('[data-exs-select="' + pid + '"]');
+        setBusy(btn, true, '…');
+        try {
+            const d = await M.api('api/exchange.php', { action: 'select', provider: pid });
+            M.toast(d.ok ? 'صرافی فعال شد: ' + pid : (d.error || 'ناموفق'), d.ok ? 'ok' : 'bad', 6000);
+            exsStatus();
+        } catch (err) { M.toast(err.message, 'bad', 6000); }
+        finally { setBusy(btn, false); }
+    }
+
     /* ── راه‌اندازی ─────────────────────────────────────────────────── */
 
     document.addEventListener('DOMContentLoaded', () => {
         initTabs();
 
         el('btn_db_test').addEventListener('click', testDb);
+        document.querySelectorAll('[data-exs-save]').forEach((b) => { b.addEventListener('click', () => { exsSave(b.getAttribute('data-exs-save')); }); });
+        document.querySelectorAll('[data-exs-test]').forEach((b) => { b.addEventListener('click', () => { exsTest(b.getAttribute('data-exs-test')); }); });
+        document.querySelectorAll('[data-exs-select]').forEach((b) => { b.addEventListener('click', () => { exsSelect(b.getAttribute('data-exs-select')); }); });
+        exsStatus();
         el('btn_db_save').addEventListener('click', saveDb);
         el('btn_db_install').addEventListener('click', installTables);
         el('btn_ai_test_all').addEventListener('click', testAllProviders);

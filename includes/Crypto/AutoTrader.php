@@ -481,8 +481,8 @@ final class AutoTrader
                 }
             }
         }
-        if ($price <= 0) {
-            $tk = (new BinanceSpot(null, ['mode' => 'live']))->ticker((string)$pos['symbol']);
+        if ($price <= 0 && $this->live !== null) {
+            $tk = $this->live->ticker((string)$pos['symbol']);
             $price = $tk['price'] ?? 0;
         }
         if ($price <= 0) {
