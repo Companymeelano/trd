@@ -22,6 +22,31 @@ namespace Meelano\Crypto;
  */
 final class Filters
 {
+    /** @var array|null زمینهٔ یادگیری تطبیقی: multipliers + disabled (نسخهٔ ۵٫۶) */
+    private $learn;
+
+    /**
+     * @param array|null $learning خروجی LearningEngine::filterContext()
+     *                              (null = وزن‌های ایستای پایه — رفتار نسخهٔ قبل)
+     */
+    public function __construct(?array $learning = null)
+    {
+        $this->learn = $learning;
+    }
+
+    /** ضریب اثرگذار فیلتر — ۰٫۰ یعنی غیرفعال. */
+    private function mult(string $key): float
+    {
+        if ($this->learn === null) {
+            return 1.0;
+        }
+        if (in_array($key, (array)($this->learn['disabled'] ?? []), true)) {
+            return 0.0;
+        }
+        $m = (float)($this->learn['multipliers'][$key] ?? 1.0);
+        return min(3.0, max(0.05, $m));
+    }
+
     /**
      * ارزیابی همهٔ فیلترها روی یک بافت (context) از اندیکاتورها.
      *
@@ -46,10 +71,13 @@ final class Filters
         $agreeSell = 0;
         $dirFilters = 0;
 
-        $vote = static function (array &$f, float $weight) use (&$buyVotes, &$sellVotes, &$agreeBuy, &$agreeSell, &$dirFilters): void {
+        $vote = static function (array &$f, float $weight = 1.0) use (&$buyVotes, &$sellVotes, &$agreeBuy, &$agreeSell, &$dirFilters): void {
+            if (!empty($f['disabled'])) {
+                return; // فیلتر غیرفعال‌شده (مدیریت دستی v5.6)
+            }
             if ($f['side'] === 'BUY' || $f['side'] === 'SELL') {
                 $dirFilters++;
-                $w = $weight * $f['score'];
+                $w = $f['weight'] * $f['score']; // وزن نهایی = پایه × ضریب یادگیری
                 if ($f['side'] === 'BUY') {
                     $buyVotes += $w;
                     if ($f['score'] >= 0.5) { $agreeBuy++; }
@@ -199,7 +227,7 @@ final class Filters
             $f = $this->f('adx', 'قدرت روند ADX سازگار با رژیم', $adxOk,
                 $adxOk ? 0.8 : 0.25, 'NEUTRAL', 1.0, $detail);
         } else {
-            $f = $this->f('adx', 'قدرت روند ADX سازگار با رژیم', false, 0.25, 'NEUTRAL', 1.0, 'دادهٔ ADX کافی نیست.');
+            $f = $this->f('adx', 'قدرت روند ADX سازگار با رژیم', true, 0.5, 'NEUTRAL', 1.0, 'دادهٔ ADX کافی نیست — عبور خنثی.');
         }
         $filters[] = $f;
 
@@ -211,7 +239,7 @@ final class Filters
                 'Supertrend ' . ($stBuy ? 'صعودی' : 'نزولی') . ' — خط: ' . $this->sci((float)($ctx['supertrend_line'] ?? 0)));
             $vote($f, $wTrend);
         } else {
-            $f = $this->f('supertrend', 'جهت Supertrend', false, 0.25, 'NEUTRAL', $wTrend, 'دادهٔ کافی نیست.');
+            $f = $this->f('supertrend', 'جهت Supertrend', true, 0.5, 'NEUTRAL', $wTrend, 'دادهٔ کافی نیست — عبور خنثی.');
         }
         $filters[] = $f;
 
@@ -224,7 +252,7 @@ final class Filters
                 'شیب OBV: ' . $this->sci($obvSlope) . ($obvBuy ? ' (انباشت)' : ($obvSell ? ' (توزیع)' : '')));
             $vote($f, 1.0);
         } else {
-            $f = $this->f('obv', 'جریان سرمایه (OBV)', false, 0.4, 'NEUTRAL', 1.0, 'دادهٔ OBV کافی نیست.');
+            $f = $this->f('obv', 'جریان سرمایه (OBV)', true, 0.5, 'NEUTRAL', 1.0, 'دادهٔ OBV کافی نیست — عبور خنثی.');
         }
         $filters[] = $f;
 
@@ -237,7 +265,7 @@ final class Filters
                 'قیمت ' . ($vwapBuy ? 'بالای' : 'زیر') . ' VWAP (' . round($dist, 2) . '٪)');
             $vote($f, 1.0);
         } else {
-            $f = $this->f('vwap', 'موقعیت نسبت به VWAP', false, 0.4, 'NEUTRAL', 1.0, 'دادهٔ VWAP کافی نیست.');
+            $f = $this->f('vwap', 'موقعیت نسبت به VWAP', true, 0.5, 'NEUTRAL', 1.0, 'دادهٔ VWAP کافی نیست — عبور خنثی.');
         }
         $filters[] = $f;
 
@@ -538,6 +566,9 @@ final class Filters
         $filters[] = $f;
 
         /* ── جمع‌بندی ───────────────────────────────────────────────── */
+        $filters = array_values(array_filter($filters, static function ($f) {
+            return empty($f['disabled']); // فیلترهای غیرفعال از مجموعه خارج‌اند
+        }));
         $passed = count(array_filter($filters, static function ($f) {
             return $f['pass'];
         }));
@@ -576,13 +607,21 @@ final class Filters
 
     private function f(string $key, string $label, bool $pass, float $score, string $side, float $weight, string $detail): array
     {
+        $m = $this->mult($key);
+        if ($m <= 0.0) {
+            return ['key' => $key, 'label' => $label, 'pass' => false, 'score' => 0.0,
+                'side' => 'NEUTRAL', 'weight' => 0.0, 'detail' => '— غیرفعال (مدیریت دستی) —',
+                'mult' => 0.0, 'disabled' => true];
+        }
         return [
             'key' => $key,
             'label' => $label,
             'pass' => $pass,
             'score' => round($score, 2),
             'side' => $side,
-            'weight' => round($weight, 2),
+            'weight' => round($weight * $m, 2),
+            'mult' => round($m, 2),
+            'disabled' => false,
             'detail' => $detail,
         ];
     }

@@ -143,6 +143,37 @@ m_layout_head('داشبورد سیگنال', 'panel');
     <div id="tracker_result"></div>
 </div>
 
+<!-- ═══ موتور یادگیری تطبیقی (نسخهٔ ۵٫۶) ═══════════════════════════ -->
+<div class="card-3d section" id="learning_section" style="margin-top:18px;border-color:rgba(167,139,250,.25)">
+    <div class="section__head">
+        <h2 class="section__title"><i class="fa-solid fa-brain" style="color:#a78bfa"></i> موتور یادگیری تطبیقی — بهینه‌سازی وزن فیلترها از کارنامهٔ واقعی</h2>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+            <span id="learn_meta" class="badge">در حال دریافت…</span>
+            <button class="btn btn--sm" id="btn_learn_toggle" hidden><i class="fa-solid fa-power-off"></i></button>
+            <button class="btn btn--indigo btn--sm" id="btn_learn_run"><i class="fa-solid fa-graduation-cap"></i> یادگیری فوری</button>
+            <button class="btn btn--ghost btn--sm" id="btn_learn_reset"><i class="fa-solid fa-rotate-left"></i> بازنشانی وزن‌ها</button>
+        </div>
+    </div>
+    <p class="help" style="margin:0 0 12px">
+        وزن هر فیلتر دیگر عددی ایستا نیست: هر بار ردیاب سیگنال‌ها را داوری کند، این موتور رأیِ تک‌تک فیلترها را با نتیجهٔ واقعی
+        (سود/زیان R) مقایسه می‌کند و وزنِ شاهدهای درست‌گو را بالا، وزنِ خطاکارها را پایین می‌آورد — با کف و سقف سخت
+        (۰٫۲۵ تا ۲٫۵)، حداقل نمونه و هموارسازی لاپلاس تا نویز نمونهٔ کوچک وزن را نلرزاند. فیلتری که اشتباهش تکرار شود
+        <b>قرنطینه</b> می‌شود و اگر کارنامه‌اش بهبود یابد <b>بازسازی</b> و برمی‌گردد. همهٔ رویدادها پایین ثبت می‌شوند.
+    </p>
+    <div id="learn_summary" class="grid grid--4" style="margin-bottom:12px"></div>
+    <div id="learn_filters" style="max-height:420px;overflow-y:auto"></div>
+    <details class="collapse" style="margin-top:12px" id="learn_manual_box">
+        <summary><i class="fa-solid fa-sliders"></i> مدیریت دستی فیلترها (فعال/غیرفعال + ضریب اجباری)</summary>
+        <p class="help" style="margin:10px 0">ضریب دستی بر ضریبِ یادخرفته‌شده مقدم است؛ برای بازگشت به یادگیری خودکار، مقدار را خالی بگذارید و ذخیره کنید. فیلتر غیرفعال کاملاً از قیف حذف می‌شود (آستانهٔ عبور ۶۲٪ خودکار تنظیم می‌شود).</p>
+        <div id="learn_manual_list"></div>
+        <button class="btn btn--indigo btn--sm" id="btn_learn_manual_save" style="margin-top:10px"><i class="fa-solid fa-floppy-disk"></i> ذخیرهٔ مدیریت دستی</button>
+    </details>
+    <details class="collapse" style="margin-top:12px">
+        <summary><i class="fa-solid fa-clock-rotate-left"></i> آخرین رویدادهای یادگیری</summary>
+        <ul class="modal__log mono" id="learn_events" style="max-height:220px;margin-top:12px"></ul>
+    </details>
+</div>
+
 <!-- ═══ نتایج زنده اسکن ═══════════════════════════════════════════ -->
 <div class="card-3d section">
     <div class="section__head">

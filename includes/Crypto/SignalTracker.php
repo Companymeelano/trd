@@ -51,7 +51,7 @@ final class SignalTracker
         $limit = max(1, min(200, $limit));
         $rows = $this->db->select(
             'SELECT * FROM ' . $this->db->table('signals')
-            . " WHERE status = 'new' AND outcome = '' ORDER BY created_at ASC LIMIT " . (int)$limit
+            . " WHERE status IN ('new', 'suppressed') AND outcome = '' ORDER BY created_at ASC LIMIT " . (int)$limit
         );
 
         $checked = 0;
@@ -77,7 +77,7 @@ final class SignalTracker
                     'bars_held' => (int)$res['bars_held'],
                     'resolved_at' => $res['resolved_at'],
                     'tracker_json' => json_encode($res['detail'], JSON_UNESCAPED_UNICODE),
-                    'status' => 'closed',
+                    'status' => 'closed', // سرکوب‌شده‌ها هم پس از داوری بسته می‌شوند
                 ], 'id = :id', ['id' => (int)$sig['id']]);
                 $updated++;
                 if ($res['outcome'] !== 'open') {
@@ -86,6 +86,13 @@ final class SignalTracker
             } catch (Throwable $e) {
                 $errors[] = ($sig['symbol'] ?? '?') . ': ' . $e->getMessage();
             }
+        }
+
+        // نسخهٔ ۵٫۶: هر داوری تازه، سوخت موتور یادگیری تطبیقی است
+        if ($closed > 0) {
+            try {
+                LearningEngine::learn($this->db);
+            } catch (Throwable $e) { /* یادگیری هرگز داوری را نمی‌شکند */ }
         }
 
         return ['ok' => true, 'checked' => $checked, 'updated' => $updated, 'closed' => $closed, 'errors' => $errors];

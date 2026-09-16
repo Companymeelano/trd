@@ -339,6 +339,53 @@ final class Schema
                 ],
             ],
 
+            'learning_state' => [
+                'label' => 'وضعیت موتور یادگیری تطبیقی (نسخهٔ ۵٫۶)',
+                'mysql' => "CREATE TABLE IF NOT EXISTS %t% (
+                    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                    generation INT NOT NULL DEFAULT 0,
+                    weights_json MEDIUMTEXT NULL,
+                    stats_json MEDIUMTEXT NULL,
+                    total_learned INT NOT NULL DEFAULT 0,
+                    last_run DATETIME NULL,
+                    PRIMARY KEY (id)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+                'sqlite' => "CREATE TABLE IF NOT EXISTS %t% (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    generation INTEGER NOT NULL DEFAULT 0,
+                    weights_json TEXT,
+                    stats_json TEXT,
+                    total_learned INTEGER NOT NULL DEFAULT 0,
+                    last_run TEXT
+                )",
+            ],
+            'learning_events' => [
+                'label' => 'رویدادهای یادگیری (تطبیق/قرنطینه/بازسازی)',
+                'mysql' => "CREATE TABLE IF NOT EXISTS %t% (
+                    id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                    filter_key VARCHAR(32) NOT NULL,
+                    type VARCHAR(16) NOT NULL,
+                    old_mult DECIMAL(6,3) NOT NULL DEFAULT 1,
+                    new_mult DECIMAL(6,3) NOT NULL DEFAULT 1,
+                    detail VARCHAR(500) NULL,
+                    created_at DATETIME NOT NULL,
+                    PRIMARY KEY (id),
+                    KEY idx_learning_events_created (created_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+                'sqlite' => "CREATE TABLE IF NOT EXISTS %t% (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    filter_key TEXT NOT NULL,
+                    type TEXT NOT NULL,
+                    old_mult REAL NOT NULL DEFAULT 1,
+                    new_mult REAL NOT NULL DEFAULT 1,
+                    detail TEXT,
+                    created_at TEXT NOT NULL
+                )",
+                'sqlite_indexes' => [
+                    'CREATE INDEX IF NOT EXISTS %i% ON %t% (created_at)',
+                ],
+            ],
+
             'ai_tasks' => [
                 'label' => 'تعریف وظایف هوش مصنوعی',
                 'mysql' => "CREATE TABLE IF NOT EXISTS %t% (

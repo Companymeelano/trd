@@ -558,6 +558,7 @@
             const data = await M.api('api/tracker.php', { action: 'run' });
             if (data.ok) {
                 renderTracker(data.stats || data);
+                loadLearning(); // نسخهٔ ۵٫۶: داوری تازه = یادگیری تازه
                 M.toast('داوری کامل شد: ' + M.toFa(data.checked) + ' بررسی · ' + M.toFa(data.closed) + ' بسته‌شده', 'ok', 6000);
                 const meta = el('tracker_meta');
                 if (meta && data.stats) {
@@ -576,6 +577,164 @@
 
     /* ── راه‌اندازی ═══════════════════════════════════════════════════ */
 
+    /* ═══ موتور یادگیری تطبیقی (نسخهٔ ۵٫۶) ═══════════════════════════ */
+
+    function learnMultBadge(f) {
+        if (f.disabled) { return '<span class="chip chip--pending" style="font-size:10px">غیرفعال</span>'; }
+        if (f.quarantined) { return '<span class="chip chip--bad" style="font-size:10px">قرنطینه ×' + M.toFa(f.mult.toFixed(2)) + '</span>'; }
+        const drift = f.drift_pct || 0;
+        const arrow = drift > 1 ? '↑' : (drift < -1 ? '↓' : '');
+        const color = drift > 1 ? '#34d399' : (drift < -1 ? '#fb7185' : '#94a3b8');
+        return '<span class="mono" style="color:' + color + '">×' + M.toFa(f.mult.toFixed(2)) + ' ' + arrow + '</span>';
+    }
+
+    function renderLearning(st) {
+        const meta = el('learn_meta');
+        if (!meta) { return; }
+        window.__learnEnabled = !!st.enabled;
+        if (!st.ok) {
+            meta.textContent = 'آماده نیست';
+            meta.className = 'badge badge--bad';
+            return;
+        }
+        meta.textContent = (st.enabled ? 'فعال' : 'خاموش') + ' · نسل ' + M.toFa(st.generation || 0)
+            + (st.total_learned ? ' · ' + M.toFa(st.total_learned) + ' داوری' : '');
+        meta.className = 'badge ' + (st.enabled ? 'badge--ok' : 'badge--bad');
+
+        const tgl = el('btn_learn_toggle');
+        if (tgl) {
+            tgl.hidden = false;
+            tgl.innerHTML = st.enabled
+                ? '<i class="fa-solid fa-power-off"></i> خاموش‌کردن'
+                : '<i class="fa-solid fa-power-off"></i> روشن‌کردن';
+        }
+
+        const sum = el('learn_summary');
+        if (sum) {
+            const active = (st.filters || []).filter(function (f) { return !f.disabled && !f.quarantined; }).length;
+            const quarantined = (st.filters || []).filter(function (f) { return f.quarantined; }).length;
+            const learned = (st.filters || []).reduce(function (a, f) { return a + (f.n || 0); }, 0);
+            const best = (st.filters || []).filter(function (f) { return (f.n || 0) >= 10; })
+                .sort(function (a, b) { return (b.correctness || 0) - (a.correctness || 0); })[0];
+            sum.innerHTML =
+                '<div><div class="stat__value">' + M.toFa(active) + '</div><div class="stat__sub">شاهد فعال</div></div>' +
+                '<div><div class="stat__value" style="color:' + (quarantined ? '#fb7185' : 'inherit') + '">' + M.toFa(quarantined) + '</div><div class="stat__sub">قرنطینه</div></div>' +
+                '<div><div class="stat__value">' + M.toFa(learned) + '</div><div class="stat__sub">رأی سنجیده‌شده</div></div>' +
+                '<div><div class="stat__value" style="font-size:14px">' + (best ? M.escapeHtml(best.label.slice(0, 22)) : '—') + '</div><div class="stat__sub">' + (best ? 'دقیق‌ترین شاهد: ' + M.toFa(Math.round((best.correctness || 0) * 100)) + '٪' : 'دقیق‌ترین شاهد') + '</div></div>';
+        }
+
+        const box = el('learn_filters');
+        if (box) {
+            const rows = (st.filters || []).map(function (f) {
+                const corr = Math.round((f.correctness || 0) * 100);
+                const corrColor = corr >= 58 ? '#34d399' : (corr >= 48 ? '#fbbf24' : '#fb7185');
+                const rTxt = f.avg_r !== null && f.avg_r !== undefined ? M.toFa(f.avg_r.toFixed(2)) : '—';
+                const dir = f.directional
+                    ? '<span class="mono" style="color:' + corrColor + '">' + M.toFa(corr) + '٪</span>'
+                    : '<span class="dim" style="font-size:11px">غیرجهتی</span>';
+                const manual = f.manual ? ' <i class="fa-solid fa-hand" style="font-size:10px;color:#fbbf24" title="ضریب دستی"></i>' : '';
+                return '<tr>'
+                    + '<td style="padding:6px 8px">' + M.escapeHtml(f.label) + manual + '</td>'
+                    + '<td style="padding:6px 8px;text-align:center">' + (f.directional ? M.toFa(f.n) : '—') + '</td>'
+                    + '<td style="padding:6px 8px;text-align:center">' + dir + '</td>'
+                    + '<td style="padding:6px 8px;text-align:center">' + (f.directional ? rTxt : '—') + '</td>'
+                    + '<td style="padding:6px 8px;text-align:center">' + learnMultBadge(f) + '</td>'
+                    + '</tr>';
+            }).join('');
+            box.innerHTML = (st.filters || []).length
+                ? '<div class="table-wrap"><table class="data" style="width:100%;font-size:12px"><thead><tr>'
+                    + '<th style="text-align:right">فیلتر</th><th>نمونه</th><th>درست‌بودن</th><th>میانگین R</th><th>ضریب فعلی</th>'
+                    + '</tr></thead><tbody>' + rows + '</tbody></table></div>'
+                : '<p class="help">هنوز داده‌ای نیست — بعد از اولین داوری ردیاب، کارنامهٔ فیلترها اینجا ساخته می‌شود.</p>';
+        }
+
+        const ml = el('learn_manual_list');
+        if (ml) {
+            ml.innerHTML = (st.filters || []).map(function (f) {
+                return '<div style="display:flex;align-items:center;gap:10px;padding:4px 0;flex-wrap:wrap">'
+                    + '<label style="min-width:220px;font-size:12px"><input type="checkbox" data-lm-dis="' + M.escapeHtml(f.key) + '"' + (f.disabled ? ' checked' : '') + '> ' + M.escapeHtml(f.label) + '</label>'
+                    + '<span class="dim" style="font-size:11px">ضریب دستی:</span>'
+                    + '<input type="number" step="0.05" min="0.05" max="3" style="width:90px" data-lm-mult="' + M.escapeHtml(f.key) + '"'
+                    + ' value="' + (f.manual ? f.mult : '') + '" placeholder="خودکار">'
+                    + '</div>';
+            }).join('') || '<p class="help">فیلتری شناسایی نشده — ابتدا یک اسکن اجرا کنید.</p>';
+        }
+
+        const ev = el('learn_events');
+        if (ev) {
+            const typeMap = { adapt: 'تطبیق وزن', quarantine: 'قرنطینه', recover: 'بازسازی', reset: 'بازنشانی' };
+            ev.innerHTML = (st.events || []).map(function (e) {
+                const color = e.type === 'quarantine' ? '#fb7185' : (e.type === 'recover' ? '#34d399' : '#a78bfa');
+                return '<li><span style="color:' + color + '">[' + (typeMap[e.type] || e.type) + ']</span> '
+                    + M.escapeHtml(e.filter) + ' ×' + M.toFa(e.old_mult.toFixed(2)) + ' → ×' + M.toFa(e.new_mult.toFixed(2))
+                    + ' <span class="dim">(' + M.escapeHtml(e.detail || '') + ')</span></li>';
+            }).join('') || '<li class="dim">رویدادی ثبت نشده است.</li>';
+        }
+    }
+
+    async function loadLearning() {
+        try {
+            renderLearning(await M.api('api/learning.php', { action: 'status' }));
+        } catch (err) { /* بی‌صدا */ }
+    }
+
+    async function runLearning() {
+        const btn = el('btn_learn_run');
+        setBusy(btn, true, 'در حال یادگیری…');
+        try {
+            const d = await M.api('api/learning.php', { action: 'run' });
+            if (d.ok) {
+                renderLearning(d.status || {});
+                M.toast('یادگیری کامل شد: نسل ' + M.toFa(d.generation || 0) + ' · ' + M.toFa(d.changed ? d.changed.length : 0) + ' وزن تغییر کرد'
+                    + (d.quarantined && d.quarantined.length ? ' · ' + M.toFa(d.quarantined.length) + ' قرنطینه!' : ''), 'ok', 7000);
+                loadTracker();
+            } else {
+                M.toast((d.errors && d.errors[0]) || d.error || 'یادگیری ناموفق بود', 'bad', 7000);
+            }
+        } catch (err) { M.toast(err.message, 'bad', 6000); }
+        finally { setBusy(btn, false); }
+    }
+
+    async function toggleLearning(current) {
+        try {
+            const d = await M.api('api/learning.php', { action: 'config', enabled: !current });
+            M.toast(d.ok ? (!current ? 'موتور یادگیری روشن شد.' : 'موتور یادگیری خاموش شد — وزن‌ها فعلاً ایستا هستند.') : (d.error || 'ناموفق'), d.ok ? 'ok' : 'bad', 6000);
+            if (d.ok) { renderLearning(d.status || {}); }
+        } catch (err) { M.toast(err.message, 'bad', 6000); }
+    }
+
+    async function resetLearning() {
+        if (!window.confirm('همهٔ ضرایب فیلترها به مقدار پایه (۱٫۰) بازگردند؟ کارنامه و رویدادها حفظ می‌شوند.')) { return; }
+        const btn = el('btn_learn_reset');
+        setBusy(btn, true, 'در حال بازنشانی…');
+        try {
+            const d = await M.api('api/learning.php', { action: 'reset' });
+            M.toast(d.message || d.error, d.ok ? 'ok' : 'bad', 6000);
+            if (d.ok) { renderLearning(d.status || {}); }
+        } catch (err) { M.toast(err.message, 'bad', 6000); }
+        finally { setBusy(btn, false); }
+    }
+
+    async function saveLearningManual() {
+        const btn = el('btn_learn_manual_save');
+        setBusy(btn, true, 'ذخیره…');
+        try {
+            const disabled = [];
+            const overrides = {};
+            document.querySelectorAll('[data-lm-dis]').forEach(function (c) {
+                if (c.checked) { disabled.push(c.getAttribute('data-lm-dis')); }
+            });
+            document.querySelectorAll('[data-lm-mult]').forEach(function (i) {
+                const v = parseFloat(i.value);
+                if (!isNaN(v) && v > 0) { overrides[i.getAttribute('data-lm-mult')] = v; }
+            });
+            const d = await M.api('api/learning.php', { action: 'config', disabled: disabled, overrides: overrides });
+            M.toast(d.message || d.error, d.ok ? 'ok' : 'bad', 6000);
+            if (d.ok) { renderLearning(d.status || {}); }
+        } catch (err) { M.toast(err.message, 'bad', 6000); }
+        finally { setBusy(btn, false); }
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         el('btn_scan').addEventListener('click', scanMarket);
         el('btn_single').addEventListener('click', analyzeSingle);
@@ -586,8 +745,17 @@
         if (btSym) { btSym.addEventListener('keydown', (e) => { if (e.key === 'Enter') { runBacktest(); } }); }
         const trBtn = el('btn_tracker_run');
         if (trBtn) { trBtn.addEventListener('click', runTracker); }
+        const lrBtn = el('btn_learn_run');
+        if (lrBtn) { lrBtn.addEventListener('click', runLearning); }
+        const lrRst = el('btn_learn_reset');
+        if (lrRst) { lrRst.addEventListener('click', resetLearning); }
+        const lrTgl = el('btn_learn_toggle');
+        if (lrTgl) { lrTgl.addEventListener('click', function () { toggleLearning(!window.__learnEnabled); }); }
+        const lrMan = el('btn_learn_manual_save');
+        if (lrMan) { lrMan.addEventListener('click', saveLearningManual); }
         loadPulse();
         loadTracker();
+        loadLearning();
         setInterval(loadPulse, 60000); // پالس بازار هر دقیقه
         setInterval(loadTracker, 5 * 60000); // آمار ردیاب هر ۵ دقیقه
         M.refreshSystemStatus();

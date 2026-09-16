@@ -44,7 +44,8 @@ final class SignalEngine
     public function __construct(?MarketData $market = null, ?Client $ai = null, ?Db $db = null, ?array $cfg = null)
     {
         $this->market = $market ?: new MarketData(null, (array)Config::get('market', []));
-        $this->filters = new Filters();
+        // نسخهٔ ۵٫۶: وزن فیلترها از کارنامهٔ واقعی (موتور یادگیری تطبیقی)
+        $this->filters = new Filters(LearningEngine::filterContext($db));
         $this->risk = new RiskManager((array)($cfg ?? (array)Config::get('trading', [])));
         $this->ai = $ai;
         $this->db = $db;
@@ -118,6 +119,10 @@ final class SignalEngine
             if (!empty($signal['is_signal'])) {
                 if (!empty($signal['suppressed'])) {
                     $suppressed++;
+                    // نسخهٔ ۵٫۶: سیگنالِ سرکوب‌شده هم داوری و یادگیری می‌شود
+                    // (هزینهٔ واقعی خنک‌کردن تکرار اندازه‌گیری می‌شود)
+                    $signal['scan_id'] = null;
+                    $this->persistSignal($signal, 'suppressed');
                     continue;
                 }
                 $signals[] = $signal;
@@ -549,7 +554,7 @@ final class SignalEngine
         }
     }
 
-    private function persistSignal(array $s): void
+    private function persistSignal(array $s, string $status = 'new'): void
     {
         if ($this->db === null) {
             return;
@@ -583,7 +588,7 @@ final class SignalEngine
                 'filters_json' => json_encode($s['filters'], JSON_UNESCAPED_UNICODE),
                 'mtf_json' => isset($s['mtf']) ? json_encode($s['mtf'], JSON_UNESCAPED_UNICODE) : null,
                 'ai_json' => json_encode($s['ai']['opinions'] ?? [], JSON_UNESCAPED_UNICODE),
-                'status' => 'new',
+                'status' => $status,
                 'created_at' => date('Y-m-d H:i:s'),
             ]);
         } catch (Throwable $e) {

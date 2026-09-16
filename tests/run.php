@@ -26,6 +26,7 @@ use Meelano\Crypto\ConnectorFactory;
 use Meelano\Crypto\Context;
 use Meelano\Crypto\Filters;
 use Meelano\Crypto\Indicators;
+use Meelano\Crypto\LearningEngine;
 use Meelano\Crypto\MarketData;
 use Meelano\Crypto\Nobitex;
 use Meelano\Crypto\Wallex;
@@ -1137,6 +1138,151 @@ check('RSI ۵۸ در روند صعودی = خرید (بدون پس‌رفت)', (
 // نبود کلیدهای جدید = عبور خنثی
 $evalNoKeys = (new Filters())->evaluate($buyCtx);
 check('نبود دادهٔ v5.4 = عبور خنثی', ($g($evalNoKeys, 'ichimoku')['side'] ?? 'X') === 'NEUTRAL' && ($g($evalNoKeys, 'choppiness')['pass'] ?? false) === true);
+$noCoreCtx = $buyCtx;
+unset($noCoreCtx['adx'], $noCoreCtx['supertrend_dir'], $noCoreCtx['obv_slope'], $noCoreCtx['vwap']);
+$evalNoCore = (new Filters())->evaluate($noCoreCtx);
+check('نبود دادهٔ ADX/Supertrend/OBV/VWAP = عبور خنثی (اصلاح v5.6)',
+    ($g($evalNoCore, 'adx')['pass'] ?? false) === true
+    && ($g($evalNoCore, 'supertrend')['pass'] ?? false) === true
+    && ($g($evalNoCore, 'obv')['pass'] ?? false) === true
+    && ($g($evalNoCore, 'vwap')['pass'] ?? false) === true,
+    json_encode(array_map(static function ($f) { return [$f['key'], $f['pass']]; }, $evalNoCore['filters']), JSON_UNESCAPED_UNICODE));
+
+/* ═══ ۲۴) موتور یادگیری تطبیقی (نسخهٔ ۵٫۶) ═══ */
+section('Learning / یادگیری تطبیقی');
+
+// فیلترها با زمینهٔ یادگیری — ضریب و غیرفعال‌سازی
+$flBase = (new Filters())->evaluate($buyCtx);
+$flLearn = new Filters(['multipliers' => ['rsi' => 2.0], 'disabled' => ['climax']]);
+$evLearn = $flLearn->evaluate($buyCtx);
+$rsiBase = $g($flBase, 'rsi');
+$rsiLearn = $g($evLearn, 'rsi');
+check('یادگیری: ضریب ۲× وزن فیلتر را دو برابر می‌کند',
+    $rsiBase !== null && $rsiLearn !== null && abs($rsiLearn['weight'] - $rsiBase['weight'] * 2.0) < 0.011,
+    ($rsiBase['weight'] ?? '?') . ' → ' . ($rsiLearn['weight'] ?? '?'));
+check('یادگیری: فیلتر غیرفعال از مجموعه حذف می‌شود',
+    $g($evLearn, 'climax') === null && $evLearn['total'] === $flBase['total'] - 1,
+    $evLearn['total'] . ' در برابر ' . $flBase['total']);
+check('یادگیری: بدون زمینه = رفتار ایستای قبل',
+    abs((new Filters())->evaluate($buyCtx)['tech_score']
+        - (new Filters(['multipliers' => [], 'disabled' => []]))->evaluate($buyCtx)['tech_score']) < 0.001);
+
+// پایگاه‌دادهٔ ایزولهٔ یادگیری
+$lrFile = tempnam(sys_get_temp_dir(), 'mlnlearn') . '.sqlite'; @unlink($lrFile);
+$lrDb = Db::make(['driver' => 'sqlite', 'sqlite_path' => $lrFile]);
+(new Installer($lrDb))->run();
+check('جدول‌های یادگیری ساخته شدند', $lrDb->tableExists('learning_state') && $lrDb->tableExists('learning_events'));
+
+$mkFiltersJson = static function (array $spec): string {
+    $out = [];
+    foreach ($spec as $key => $side) {
+        $out[] = ['key' => $key, 'label' => 'فیلتر ' . $key, 'pass' => true, 'score' => 0.9, 'side' => $side, 'weight' => 1.0, 'detail' => '-'];
+    }
+    return json_encode($out, JSON_UNESCAPED_UNICODE);
+};
+$seedSignal = static function (Db $db, string $side, float $r, string $filtersJson) use ($lrDb): void {
+    $db->insert('signals', [
+        'scan_id' => null, 'symbol' => 'BTCUSDT', 'side' => $side, 'timeframe' => '1h',
+        'tier' => 'A', 'regime' => 'trend_up', 'confidence' => 80, 'tech_score' => 75,
+        'ai_score' => 0, 'combined_score' => 80, 'mtf_score' => 0,
+        'entry_price' => 100, 'stop_loss' => 98, 'take_profit_1' => 104, 'take_profit_2' => 106, 'take_profit_3' => 110,
+        'risk_reward' => 3, 'position_pct' => 5, 'invalidation' => '',
+        'filters_passed' => 20, 'filters_total' => 31, 'filters_json' => $filtersJson,
+        'status' => 'closed', 'created_at' => date('Y-m-d H:i:s', time() - 86400),
+        'hit_tp1' => $r > 0 ? 1 : 0, 'hit_tp2' => 0, 'hit_tp3' => 0, 'hit_stop' => $r <= 0 ? 1 : 0,
+        'outcome' => $r > 0 ? 'tp1' : 'stop', 'exit_price' => $r > 0 ? 104 : 98,
+        'r_multiple' => $r, 'bars_held' => 5, 'resolved_at' => date('Y-m-d H:i:s'),
+    ]);
+};
+
+// شاهد خوب (برنده‌ها را تأیید می‌کند) · شاهد بد (بازنده‌ها را تأیید می‌کند) · نمونهٔ کم
+$goodJson = $mkFiltersJson(['rsi' => 'BUY', 'climax' => 'SELL']);
+$badJson = $mkFiltersJson(['rsi' => 'SELL', 'climax' => 'BUY']);
+$tinyJson = $mkFiltersJson(['tiny' => 'BUY']);
+for ($i = 0; $i < 15; $i++) {
+    $seedSignal($lrDb, 'BUY', 1.5, $goodJson);  // برنده: rsi درست، climax مخالفِ درست
+    $seedSignal($lrDb, 'BUY', -1.0, $badJson);  // بازنده: climax اشتباه (تأییدکنندهٔ بازنده)
+}
+for ($i = 0; $i < 5; $i++) {
+    $seedSignal($lrDb, 'BUY', 1.0, $tinyJson);  // نمونهٔ کم — نباید تطبیق شود
+}
+// شاهد فاجعه‌بار: ۳۰ بازنده پیاپی → قرنطینه
+$awfulJson = $mkFiltersJson(['awful' => 'BUY']);
+for ($i = 0; $i < 30; $i++) {
+    $seedSignal($lrDb, 'BUY', -1.0, $awfulJson);
+}
+
+$learn1 = LearningEngine::learn($lrDb);
+check('یادگیری: دور اول موفق', $learn1['ok'] === true, json_encode($learn1['errors'] ?? [], JSON_UNESCAPED_UNICODE));
+$lrState1 = LearningEngine::state($lrDb);
+$rsiMult1 = (float)($lrState1['weights']['rsi']['mult'] ?? 0);
+$climaxMult1 = (float)($lrState1['weights']['climax']['mult'] ?? 0);
+$awfulMult1 = (float)($lrState1['weights']['awful']['mult'] ?? 0);
+$tinyMult1 = (float)($lrState1['weights']['tiny']['mult'] ?? 1.0);
+check('یادگیری: شاهد درست‌گو وزن گرفت (rsi > 1)', $rsiMult1 > 1.01, (string)$rsiMult1);
+check('یادگیری: شاهد خطاکار جریمه شد (climax < 1)', $climaxMult1 > 0 && $climaxMult1 < 0.99, (string)$climaxMult1);
+check('یادگیری: نمونهٔ کم تطبیق نمی‌خورد (tiny = 1)', abs($tinyMult1 - 1.0) < 0.001, (string)$tinyMult1);
+check('یادگیری: خطای تکراری قرنطینه شد', in_array('awful', $learn1['quarantined'], true)
+    && !empty($lrState1['weights']['awful']['q']) && $awfulMult1 <= 0.35, (string)$awfulMult1);
+check('یادگیری: رویداد قرنطینه ثبت شد', (int)$lrDb->count('learning_events', "type = 'quarantine' AND filter_key = 'awful'") === 1);
+check('یادگیری: نسل و شمار داوری ثبت شد', $learn1['generation'] === 1 && $learn1['learned'] === 65, $learn1['generation'] . '/' . $learn1['learned']);
+
+// گزارش وضعیت
+$lrStatus = LearningEngine::status($lrDb);
+$stRsi = null;
+foreach ($lrStatus['filters'] as $f) { if ($f['key'] === 'rsi') { $stRsi = $f; } }
+check('گزارش: برچسب و آمار فیلتر برداشت شد', $stRsi !== null && $stRsi['label'] === 'فیلتر rsi' && $stRsi['n'] === 15 && $stRsi['correct'] === 15,
+    json_encode($stRsi, JSON_UNESCAPED_UNICODE));
+check('گزارش: میانگین R شاهد درست‌گو', $stRsi !== null && abs($stRsi['avg_r'] - 1.5) < 0.01, (string)($stRsi['avg_r'] ?? '-'));
+check('گزارش: رویدادها فهرست شدند', count($lrStatus['events']) >= 1);
+
+// زمینهٔ فیلترها: ضرایب به Filters تزریق می‌شوند
+$lrCtx = LearningEngine::filterContext($lrDb);
+check('زمینه: ضریب آموختهٔ rsi به Filters می‌رسد',
+    is_array($lrCtx) && abs(($lrCtx['multipliers']['rsi'] ?? 0) - $rsiMult1) < 0.001, json_encode($lrCtx['multipliers'] ?? []));
+
+// بازیابی از قرنطینه: ۳۶ برندهٔ تازه برای awful → درست‌بودن ≈ ۵۴٪
+for ($i = 0; $i < 36; $i++) {
+    $seedSignal($lrDb, 'BUY', 2.0, $awfulJson);
+}
+$learn2 = LearningEngine::learn($lrDb);
+$lrState2 = LearningEngine::state($lrDb);
+check('بازسازی: قرنطینه‌شدهٔ بهبودیافته برگشت', in_array('awful', $learn2['recovered'], true)
+    && empty($lrState2['weights']['awful']['q']) && (float)$lrState2['weights']['awful']['mult'] >= 0.8,
+    (string)($lrState2['weights']['awful']['mult'] ?? '?'));
+check('بازسازی: رویداد بازیابی ثبت شد', (int)$lrDb->count('learning_events', "type = 'recover' AND filter_key = 'awful'") === 1);
+
+// سقف/کف سخت: فشار مکرر نباید از سقف بگذرد
+for ($round = 0; $round < 12; $round++) {
+    for ($i = 0; $i < 15; $i++) {
+        $seedSignal($lrDb, 'BUY', 2.0, $goodJson); // rsi همیشه درست
+    }
+    LearningEngine::learn($lrDb);
+}
+$lrState3 = LearningEngine::state($lrDb);
+check('ایمنی: ضریب هرگز از سقف ۲٫۵ نمی‌گذرد', (float)$lrState3['weights']['rsi']['mult'] <= 2.5, (string)$lrState3['weights']['rsi']['mult']);
+
+// بازنشانی
+$lrReset = LearningEngine::reset($lrDb);
+$lrState4 = LearningEngine::state($lrDb);
+$allBase = true;
+foreach ($lrState4['weights'] as $w) {
+    if (abs((float)($w['mult'] ?? 1.0) - 1.0) > 0.001) { $allBase = false; }
+}
+check('بازنشانی: همهٔ ضرایب به ۱٫۰ برگشتند', $lrReset['ok'] && $allBase && $lrState4['generation'] > $lrState3['generation']);
+check('بازنشانی: رویداد ثبت شد', (int)$lrDb->count('learning_events', "type = 'reset'") === 1);
+
+// ضریب دستی بر آموخته‌شده مقدم است + غیرفعال‌سازی دستی
+Config::set('learning.overrides', ['rsi' => 1.7]);
+Config::set('learning.disabled', ['climax']);
+$lrCtx2 = LearningEngine::filterContext($lrDb);
+check('مدیریت دستی: ضریب دستی مقدم است', abs(($lrCtx2['multipliers']['rsi'] ?? 0) - 1.7) < 0.001
+    && in_array('climax', $lrCtx2['disabled'], true), json_encode($lrCtx2, JSON_UNESCAPED_UNICODE));
+Config::set('learning.overrides', []);
+Config::set('learning.disabled', []);
+Config::save();
+
+@unlink($lrFile);
 
 echo "\n════════════════════════════════════\nموفق: {$passed}   ناموفق: {$failed}\n";
 
