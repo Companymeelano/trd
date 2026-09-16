@@ -6,6 +6,13 @@
 
 require __DIR__ . '/bootstrap.php';
 
+/* CORS (v5.8.1): سلامت، دادهٔ عمومی و بدون احراز است — اپ اندروید میلانو
+   و پایشگرهای بیرونی می‌توانند آن را از مبدأ متفاوت بخوانند. */
+if (!headers_sent()) {
+    header('Access-Control-Allow-Origin: *');
+    header('Access-Control-Allow-Methods: GET, OPTIONS');
+}
+
 use Meelano\Ai\Health;
 use Meelano\Ai\Registry;
 use Meelano\Ai\Router;

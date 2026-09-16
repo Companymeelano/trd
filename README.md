@@ -122,6 +122,15 @@ php tests/run.php
 
 ساخت APK از طریق GitHub Actions (گزینهٔ «Android APK») → انتشار خودکار در Release با لینک مستقیم نصب.
 
+### بستهٔ آمادهٔ v5.8.1 — HOST LINK (رفع کرش لحظهٔ باز شدن)
+
+- **`MeelanoTrader-v5.8.1-HostLink.apk`** — رفع کرش نسخهٔ ۵٫۸ با سه اقدام هم‌زمان:
+  ۱) حذف کامل کلاس بومی `Bridge` (کد smali دست‌نویس پرخطر) — سلامت‌سنجی حالا با `fetch` مستقیم
+  از WebView انجام می‌شود (`setAllowUniversalAccessFromFileURLs` + هدر CORS در `api/health.php`)؛
+  ۲) حذف تم `Theme.Material` از مانیفست (تم پیش‌فرض سیستم — سازگار با همهٔ دستگاه‌ها)؛
+  ۳) ذخیرهٔ `resources.arsc` بدون فشرده‌سازی (الزام سازگاری اندرویدهای جدید).
+- شناسایی خطای اسکریپت روی صفحه (`window.onerror`) + مهلت ۲۰ ثانیه‌ای برای سلامت‌سنجی.
+
 ### بستهٔ آمادهٔ v5.8 — HOST LINK (اتصال هاست + بازار زنده + نمایش موتور)
 
 - **`MeelanoTrader-v5.8-HostLink.apk`** — نسخهٔ کامل سه‌حالته (پکیج `com.meelano.panel`، versionCode 58، minSdk 21):

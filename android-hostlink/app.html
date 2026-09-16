@@ -269,12 +269,12 @@ footer{margin-top:24px;text-align:center;color:var(--text-dim);font-size:11px;li
       <div class="brand__gem">M</div>
       <div>
         <div class="brand__t">میلانو <b>تریدر</b></div>
-        <div class="brand__s">HOST LINK · نسخهٔ ۵٫۸ — اتصال هاست · بازار زنده · موتور سیگنال</div>
+        <div class="brand__s">HOST LINK · نسخهٔ ۵٫۸٫۱ — اتصال هاست · بازار زنده · موتور سیگنال</div>
       </div>
     </div>
     <div class="topbar__chips">
       <span class="badge" id="netBadge">🌐 شبکه: —</span>
-      <span class="badge badge--gold" id="verBadge">v5.8</span>
+      <span class="badge badge--gold" id="verBadge">v5.8.1</span>
     </div>
   </header>
 
@@ -434,7 +434,7 @@ footer{margin-top:24px;text-align:center;color:var(--text-dim);font-size:11px;li
   </section>
 
   <footer>
-    میلانو تریدر · HOST LINK v5.8 · com.meelano.panel — Milad Yaghoobi · Meelano Studio Design<br>
+    میلانو تریدر · HOST LINK v5.8.1 · com.meelano.panel — Milad Yaghoobi · Meelano Studio Design<br>
     تب «اتصال به هاست» پس از استقرار پنل روی cPanel فعال می‌شود · تب «بازار زنده» مستقیماً از API عمومی بایننس تغذیه می‌کند
   </footer>
 </div>
@@ -444,6 +444,17 @@ footer{margin-top:24px;text-align:center;color:var(--text-dim);font-size:11px;li
 <script>
 (function () {
   'use strict';
+
+  /* ── نمایش خطای اسکریپت روی صفحه (v5.8.1) ── */
+  window.onerror = function (msg) {
+    try {
+      var d = document.createElement('div');
+      d.className = 'notice notice--rose';
+      d.style.margin = '10px 0';
+      d.textContent = 'خطای اسکریپت: ' + msg;
+      document.body.insertBefore(d, document.body.firstChild);
+    } catch (e) {}
+  };
 
   /* ── ابزارها ── */
   var $ = function (id) { return document.getElementById(id); };
@@ -596,22 +607,39 @@ footer{margin-top:24px;text-align:center;color:var(--text-dim);font-size:11px;li
     if (!u) { toast('⚠️ نشانی پنل را وارد کنید'); return; }
     try { localStorage.setItem('meelano_server', u); } catch (e) {}
 
-    if (!window.MeelanoBridge || !window.MeelanoBridge.healthCheck) {
-      $('healthOut').innerHTML = '<div class="notice"><b>سلامت‌سنجی فقط داخل اپ اندروید میلانو فعال است.</b><br>' +
-        'این فایل را در مرورگر باز کرده‌اید؛ پل بومی شبکه در دسترس نیست. در اپ نصب‌شده این دکمه از ' +
-        '<span class="mono">' + esc(u) + '/api/health.php</span> پاسخ می‌گیرد.</div>';
-      return;
-    }
-
     $('healthOut').innerHTML = '<div class="notice"><span class="spin" style="vertical-align:-3px;margin-inline-end:8px"></span>' +
       'در حال تماس با <span class="mono">' + esc(u) + '/api/health.php</span> …</div>';
     var endpoint = u + '/api/health.php';
     var t0 = Date.now();
-    setTimeout(function () {
-      var raw = '';
-      try { raw = window.MeelanoBridge.healthCheck(endpoint); } catch (e) { raw = '{"ok":false,"error":"network"}'; }
-      renderHealth(raw, Date.now() - t0);
-    }, 60);
+    var finish = function (raw) { renderHealth(raw, Date.now() - t0); };
+
+    // مسیر ۱: پل بومی (فقط اگر در نسخه‌ای فعال باشد)
+    if (window.MeelanoBridge && window.MeelanoBridge.healthCheck) {
+      setTimeout(function () {
+        var raw = '';
+        try { raw = window.MeelanoBridge.healthCheck(endpoint); } catch (e) { raw = '{"ok":false,"error":"network"}'; }
+        finish(raw);
+      }, 60);
+      return;
+    }
+
+    // مسیر ۲ (اصلی v5.8.1): fetch مستقیم — WebView با دسترسی کامل از file://
+    var timedOut = false;
+    var timer = new Promise(function (res) {
+      setTimeout(function () { timedOut = true; res(null); }, 20000);
+    });
+    Promise.race([
+      fetch(endpoint, { method: 'GET', cache: 'no-store' }).then(function (r) {
+        if (!r.ok) { return JSON.stringify({ ok: false, error: 'http', http: r.status }); }
+        return r.text();
+      }),
+      timer
+    ]).then(function (raw) {
+      if (timedOut && raw === null) { raw = JSON.stringify({ ok: false, error: 'network' }); }
+      finish(raw);
+    }).catch(function () {
+      finish(JSON.stringify({ ok: false, error: 'network' }));
+    });
   });
 
   /* ═══ تب ۲: بازار زنده (REST + WebSocket بایننس) ════════════════ */
