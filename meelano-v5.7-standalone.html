@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#05070f">
+<title>میلانو ۵٫۷ — داشبورد سیگنال کریپتو (نسخهٔ مستقل)</title>
+<!--
+  ═══ میلانو تریدینگ اینتلیجنس · نسخهٔ ۵٫۷ · APEX TRADER ═══
+  نسخهٔ HTML مستقل — بدون سرور، بدون دیتابیس؛ نمایی کامل از موتور
+  ۳۴ فیلتری، یادگیری تطبیقی رژیم‌آگاه، لایهٔ هفتم سنتیمنت آن‌چین و
+  دادهٔ لحظه‌ای وب‌سوکت (در نسخهٔ نصب‌شده زنده می‌شود).
+  Milad Yaghoobi — Meelano Studio Design
+-->
+<style>
+:root{
+  --gold-1:#ffd76a; --gold-2:#f5b731; --gold-3:#c98f15;
+  --indigo-1:#8b9dff; --indigo-2:#5b6cff;
+  --emerald:#34d399; --rose:#fb7185;
+  --bg-0:#05070f; --bg-1:#0b1020; --bg-2:#131a2e;
+  --text:#e8ecf8; --text-dim:#9aa4c0;
+  --line:rgba(255,255,255,.09); --line-soft:rgba(255,255,255,.06);
+  --font-fa:"Vazirmatn","Segoe UI",Tahoma,sans-serif;
+  --radius-lg:18px; --radius-md:13px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--font-fa); color:var(--text); min-height:100vh; overflow-x:hidden;
+  background:
+    radial-gradient(60% 40% at 85% -5%, rgba(91,108,255,.14), transparent 60%),
+    radial-gradient(50% 35% at 10% 0%, rgba(245,183,49,.1), transparent 55%),
+    linear-gradient(180deg,var(--bg-1) 0%,var(--bg-0) 100%);
+}
+::selection{background:rgba(245,183,49,.3)}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-track{background:#070a14}
+::-webkit-scrollbar-thumb{background:linear-gradient(180deg,#2a3352,#1a2038);border-radius:8px;border:2px solid #070a14}
+::-webkit-scrollbar-thumb:hover{background:linear-gradient(180deg,#3d4a74,#232b48)}
+
+.shell{position:relative;z-index:1;max-width:1280px;margin:0 auto;padding:18px 18px 48px}
+.stack{display:flex;flex-direction:column;gap:18px}
+
+/* ── هدر ── */
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:10px 4px}
+.brand{display:flex;align-items:center;gap:12px}
+.brand__gem{
+  width:46px;height:46px;border-radius:14px;display:grid;place-items:center;font-size:21px;font-weight:900;color:#231803;
+  background:linear-gradient(180deg,#ffe9a8 0%,var(--gold-1) 30%,var(--gold-2) 62%,#b57e12 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.7),inset 0 -3px 6px rgba(120,78,10,.55),0 3px 0 #6d4a0a,0 15px 30px -10px rgba(245,183,49,.55);
+}
+.brand__t{font-size:19px;font-weight:900;letter-spacing:.3px}
+.brand__t b{color:var(--gold-1)}
+.brand__s{font-size:11.5px;color:var(--text-dim);margin-top:2px}
+.topbar__chips{display:flex;gap:7px;flex-wrap:wrap}
+
+.badge{
+  display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:700;padding:5px 11px;border-radius:999px;
+  border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--text-dim);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.1),0 3px 8px -4px rgba(0,0,0,.6)
+}
+.badge--ok{color:#6ee7b7;border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.1)}
+.badge--bad{color:#fda4af;border-color:rgba(251,113,133,.4);background:rgba(251,113,133,.1)}
+.badge--gold{color:var(--gold-1);border-color:rgba(245,183,49,.4);background:rgba(245,183,49,.1)}
+
+.page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:14px;flex-wrap:wrap;margin:8px 0 4px}
+.page-title{font-size:clamp(19px,3.4vw,26px);font-weight:900}
+.page-sub{color:var(--text-dim);font-size:12.5px;margin-top:6px;max-width:640px;line-height:2}
+
+/* ── دکمه‌های جواهر سه‌بعدی ── */
+.btn{
+  position:relative;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  font-family:var(--font-fa);font-size:13.5px;font-weight:800;cursor:pointer;padding:12px 22px;border-radius:15px;
+  border:1px solid var(--line);background:rgba(255,255,255,.05);color:var(--text);text-decoration:none;white-space:nowrap;
+  transform:translateZ(0);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.14),inset 0 -2px 4px rgba(0,0,0,.35),0 2px 0 rgba(0,0,0,.45),0 10px 22px -10px rgba(0,0,0,.7);
+  transition:transform .18s,filter .2s,box-shadow .25s;
+}
+.btn::before{content:'';position:absolute;inset:1px 1px auto 1px;height:42%;border-radius:14px 14px 40% 40%/14px 14px 22px 22px;
+  background:linear-gradient(180deg,rgba(255,255,255,.28),rgba(255,255,255,0));pointer-events:none;opacity:.75}
+.btn::after{content:'';position:absolute;top:-60%;bottom:-60%;width:34%;inset-inline-start:-45%;
+  background:linear-gradient(115deg,transparent,rgba(255,255,255,.35),transparent);transform:skewX(-18deg);
+  transition:inset-inline-start .55s ease;pointer-events:none}
+.btn:hover::after{inset-inline-start:130%}
+.btn:hover{filter:brightness(1.06);transform:translateY(-2px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.22),inset 0 -2px 5px rgba(0,0,0,.38),0 4px 0 rgba(0,0,0,.42),0 18px 34px -12px rgba(0,0,0,.75)}
+.btn:active{transform:translateY(3px);filter:brightness(.97);
+  box-shadow:inset 0 2px 6px rgba(0,0,0,.5),0 1px 0 rgba(0,0,0,.4),0 6px 14px -8px rgba(0,0,0,.6)}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none;filter:none}
+.btn:disabled::before,.btn:disabled::after{display:none}
+.btn--gold{
+  background:linear-gradient(180deg,#ffe9a8 0%,var(--gold-1) 30%,var(--gold-2) 62%,#b57e12 100%);color:#231803;
+  text-shadow:0 1px 0 rgba(255,255,255,.45);border-color:rgba(255,230,160,.55) rgba(120,84,12,.6) rgba(90,62,8,.75);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.7),inset 0 -3px 6px rgba(120,78,10,.55),0 3px 0 #6d4a0a,0 15px 30px -10px rgba(245,183,49,.55),0 26px 44px -18px rgba(0,0,0,.8)}
+.btn--gold:hover{box-shadow:inset 0 1px 0 rgba(255,255,255,.8),inset 0 -3px 7px rgba(120,78,10,.5),0 5px 0 #6d4a0a,0 22px 42px -12px rgba(245,183,49,.75),0 34px 60px -20px rgba(0,0,0,.85)}
+.btn--indigo{
+  background:linear-gradient(180deg,#aab8ff 0%,#7f8fff 28%,var(--indigo-2) 60%,#2f33a8 100%);color:#fff;
+  border-color:rgba(190,200,255,.4) rgba(40,44,130,.55) rgba(24,26,90,.7);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.45),inset 0 -3px 6px rgba(20,22,80,.6),0 3px 0 #23268a,0 15px 30px -10px rgba(91,108,255,.5),0 26px 44px -18px rgba(0,0,0,.8)}
+.btn--emerald{
+  background:linear-gradient(180deg,#a7f3d4 0%,#6ee7b7 28%,var(--emerald) 60%,#047857 100%);color:#04241a;
+  border-color:rgba(200,255,230,.4) rgba(6,95,70,.5) rgba(4,70,52,.7);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.5),inset 0 -3px 6px rgba(4,70,52,.5),0 3px 0 #045c43,0 15px 30px -10px rgba(52,211,153,.45),0 26px 44px -18px rgba(0,0,0,.8)}
+.btn--sm{padding:8px 14px;font-size:12px;border-radius:12px}
+
+/* ── کارت‌های مخمل شیشه‌ای ── */
+.card{position:relative;
+  background:linear-gradient(160deg,rgba(24,32,56,.96) 0%,rgba(13,18,36,.88) 46%,rgba(8,11,24,.94) 100%);
+  border:1px solid var(--line-soft);border-radius:var(--radius-lg);padding:20px;
+  box-shadow:0 22px 52px -20px rgba(0,0,0,.8),0 4px 14px -6px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.07),inset 0 -1px 0 rgba(0,0,0,.35);
+  transition:transform .28s cubic-bezier(.4,0,.2,1),border-color .28s,box-shadow .28s}
+.card:hover{transform:translateY(-4px);border-color:rgba(245,183,49,.28);
+  box-shadow:0 30px 64px -22px rgba(0,0,0,.85),0 6px 18px -6px rgba(0,0,0,.5),0 0 0 1px rgba(245,183,49,.14),0 0 44px -12px rgba(245,183,49,.22),inset 0 1px 0 rgba(255,255,255,.09)}
+.card::after{content:'';position:absolute;inset:-1px;border-radius:inherit;
+  background:linear-gradient(140deg,rgba(255,215,106,.35),transparent 30%,transparent 70%,rgba(255,215,106,.2));
+  opacity:0;transition:opacity .3s ease;pointer-events:none}
+.card:hover::after{opacity:1}
+.card__head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-bottom:13px;margin-bottom:15px;border-bottom:1px solid var(--line-soft)}
+.card__title{display:flex;align-items:center;gap:10px;font-size:15.5px;font-weight:800}
+.card__title i,.ico{display:grid;place-items:center;width:32px;height:32px;border-radius:11px;font-size:14px;font-style:normal;
+  background:linear-gradient(145deg,rgba(245,183,49,.22),rgba(91,108,255,.18));border:1px solid rgba(245,183,49,.25);color:var(--gold-1)}
+.hint{color:var(--text-dim);font-size:12px;line-height:2}
+
+/* ── گرید و آمار ── */
+.grid{display:grid;gap:16px}
+.grid--2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.grid--3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.grid--6{grid-template-columns:repeat(6,minmax(0,1fr))}
+.stat{padding:16px;border-radius:var(--radius-md);
+  background:linear-gradient(165deg,rgba(10,14,28,.9),rgba(5,8,18,.82));border:1px solid var(--line-soft);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.06),inset 0 -2px 5px rgba(0,0,0,.4),0 10px 24px -14px rgba(0,0,0,.7);
+  transition:transform .25s ease,box-shadow .25s ease}
+.stat:hover{transform:translateY(-2px);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.09),inset 0 -2px 5px rgba(0,0,0,.38),0 16px 30px -14px rgba(0,0,0,.75),0 0 26px -10px rgba(245,183,49,.18)}
+.stat__label{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--text-dim);font-weight:700}
+.stat__value{font-size:clamp(17px,2.2vw,23px);font-weight:900;margin:7px 0 5px}
+.stat__sub{font-size:11.5px;color:var(--text-dim)}
+
+/* گیج‌ها */
+.gauge{height:9px;border-radius:999px;background:rgba(0,0,0,.55);border:1px solid var(--line);overflow:hidden;padding:1.5px}
+.gauge__fill{height:100%;border-radius:999px;transition:width .8s cubic-bezier(.4,0,.2,1)}
+.gauge--tri .gauge__fill{background:linear-gradient(90deg,#fb7185,#fbbf24,#34d399)}
+
+/* چیپ رژیم */
+.chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;padding:3px 10px;border-radius:999px}
+.chip--up{color:#6ee7b7;background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.35)}
+.chip--down{color:#fda4af;background:rgba(251,113,133,.12);border:1px solid rgba(251,113,133,.35)}
+.chip--range{color:var(--gold-1);background:rgba(245,183,49,.12);border:1px solid rgba(245,183,49,.35)}
+
+/* جدول سیگنال‌ها */
+.tbl{width:100%;border-collapse:collapse;font-size:12.5px}
+.tbl th{font-size:11px;color:var(--text-dim);text-align:right;padding:9px 10px;border-bottom:1px solid var(--line);font-weight:800;white-space:nowrap}
+.tbl td{padding:11px 10px;border-bottom:1px solid var(--line-soft);white-space:nowrap}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tbody tr{transition:background .18s}
+.tbl tbody tr:hover{background:rgba(245,183,49,.05)}
+.mono{font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;letter-spacing:.3px}
+.up{color:#6ee7b7}.down{color:#fda4af}
+.tier{display:inline-grid;place-items:center;min-width:34px;padding:3px 8px;border-radius:9px;font-weight:900;font-size:11.5px}
+.tier--a1{background:linear-gradient(180deg,#ffe9a8,var(--gold-2));color:#231803;box-shadow:0 2px 0 #6d4a0a}
+.tier--a{background:linear-gradient(180deg,#aab8ff,#5b6cff);color:#fff;box-shadow:0 2px 0 #23268a}
+.tier--b{background:rgba(139,157,255,.16);color:var(--indigo-1);border:1px solid rgba(139,157,255,.3)}
+
+/* سرخطی‌های سنتیمنت */
+.newsrow{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:12px;border:1px solid var(--line-soft);
+  background:rgba(3,6,15,.55);font-size:12.5px}
+.newsrow + .newsrow{margin-top:7px}
+
+/* نوار تیک متحرک */
+.strip{overflow:hidden;border-radius:999px;border:1px solid var(--line-soft);background:rgba(3,6,15,.55);padding:9px 0}
+.strip__in{display:flex;gap:26px;white-space:nowrap;animation:slide 36s linear infinite;will-change:transform;padding:0 14px}
+.strip:hover .strip__in{animation-play-state:paused}
+@keyframes slide{from{transform:translateX(0)}to{transform:translateX(50%)}}
+.tick{display:inline-flex;align-items:center;gap:7px;font-size:12px}
+.tick b{color:var(--gold-1)}
+
+/* toast نمایشی */
+.toast{position:fixed;bottom:22px;inset-inline:0;margin:auto;width:max-content;max-width:92vw;z-index:50;
+  padding:12px 20px;border-radius:14px;font-size:12.5px;font-weight:700;
+  background:linear-gradient(160deg,rgba(24,32,56,.97),rgba(8,11,24,.97));border:1px solid rgba(245,183,49,.35);color:var(--text);
+  box-shadow:0 18px 44px -14px rgba(0,0,0,.85),0 0 30px -8px rgba(245,183,49,.3);
+  opacity:0;transform:translateY(14px);transition:opacity .3s,transform .3s;pointer-events:none}
+.toast.on{opacity:1;transform:translateY(0)}
+
+footer{margin-top:26px;text-align:center;color:var(--text-dim);font-size:11.5px;line-height:2.1}
+
+/* ── رسپانسیو ── */
+@media (max-width:1024px){
+  .grid--6{grid-template-columns:repeat(3,1fr)}
+  .grid--3{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:640px){
+  .shell{padding:12px 10px 34px}
+  .grid--2,.grid--3,.grid--6{grid-template-columns:1fr}
+  .btn{width:100%}
+  .btn--sm{width:auto}
+  .page-head{flex-direction:column;align-items:stretch}
+  .card{padding:15px;border-radius:16px}
+  .tbl{font-size:11.5px}
+  .tbl th,.tbl td{padding:8px 7px}
+  .strip{font-size:11px}
+}
+@media (hover:none){.card:hover{transform:none}.btn:hover{transform:none}.btn:active{transform:translateY(2px)}}
+@media (prefers-reduced-motion:reduce){.strip__in{animation:none}.btn::after{display:none}.card,.stat,.btn{transition:none}}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ═══ هدر ═══ -->
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand__gem">M</div>
+      <div>
+        <div class="brand__t">میلانو <b>تریدینگ اینتلیجنس</b></div>
+        <div class="brand__s">APEX TRADER · نسخهٔ ۵٫۷ — ONCHAIN SENTIMENT &amp; LIVE PULSE</div>
+      </div>
+    </div>
+    <div class="topbar__chips">
+      <span class="badge badge--ok">🛰️ وب‌سوکت: زنده · ۱۲ پیام/ثانیه</span>
+      <span class="badge badge--gold">🧠 یادگیری: نسل ۲۴</span>
+      <span class="badge">🕐 ۱۴۰۵/۰۶/۲۵ — ۲۱:۴۸</span>
+    </div>
+  </header>
+
+  <div class="page-head">
+    <div>
+      <h1 class="page-title">موتور سیگنال هوشمند کریپتو</h1>
+      <p class="page-sub">قیف ۹ مرحله‌ای تصمیم نهادی: نقدینگی ← رژیم بازار ← ۳۴ فیلتر هم‌گرایی ← تأیید چند تایم‌فریمی ←
+        اجماع چندمدلی AI ← دروازهٔ بیت‌کوین ← ریسک ساختاری ← درجه‌بندی کیفیت ← خنک‌کردن تکرار.</p>
+    </div>
+    <div style="display:flex;gap:9px;flex-wrap:wrap">
+      <button class="btn btn--indigo" id="btnAnalyze">🎯 تحلیل تک‌ارز</button>
+      <button class="btn btn--gold" id="btnScan">🛰️ رصد کل بازار</button>
+    </div>
+  </div>
+
+  <div class="stack">
+
+    <!-- ═══ پالس زنده ═══ -->
+    <section class="card">
+      <div class="card__head">
+        <h2 class="card__title"><i>💓</i> پالس زندهٔ بازار</h2>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <span class="badge badge--gold" id="wsBadge">🛰️ وب‌سوکت: زنده</span>
+          <span class="badge badge--ok">به‌روزرسانی: ۲۱:۴۸:۱۲</span>
+        </div>
+      </div>
+      <div class="grid grid--3" style="margin-bottom:14px">
+        <div class="stat">
+          <div class="stat__label">₿ بیت‌کوین — لنگر بازار</div>
+          <div class="stat__value mono" id="btcPrice">$97,482</div>
+          <div class="stat__sub">🟢 روند صعودی قوی · تغییر ۲۴س: +۲٫۴٪</div>
+        </div>
+        <div class="stat">
+          <div class="stat__label">⚖️ عرض بازار</div>
+          <div class="stat__value">۴۲ ↑ / ۱۸ ↓</div>
+          <div class="stat__sub"><div class="gauge"><div class="gauge__fill" style="width:70%;background:linear-gradient(90deg,#fbbf24,#34d399)"></div></div></div>
+        </div>
+        <div class="stat">
+          <div class="stat__label">😌 ترس و طمع بازار</div>
+          <div class="stat__value">۷۲/۱۰۰</div>
+          <div class="stat__sub"><div class="gauge"><div class="gauge__fill" style="width:72%;background:linear-gradient(90deg,#34d399,#fb7185)"></div></div> طمع — احتیاط در اوج</div>
+        </div>
+        <div class="stat">
+          <div class="stat__label">🚀 صعودی‌ترین‌ها</div>
+          <div class="stat__value"><span class="mono">SOL</span> <span class="up" style="font-size:13px">+۹٫۸٪</span></div>
+          <div class="stat__sub">قیمت: $214.6 · حجم: $۲٫۱B</div>
+        </div>
+        <div class="stat">
+          <div class="stat__label">🌊 مومنتوم کل بازار ۲۴س</div>
+          <div class="stat__value" style="color:#34d399">+۳٫۲٪</div>
+          <div class="stat__sub">تغییر ارزش کل بازار کریپتو (CoinGecko)</div>
+        </div>
+        <div class="stat">
+          <div class="stat__label">📡 سنتیمنت آن‌چین (لایهٔ ۷)</div>
+          <div class="stat__value" style="color:#34d399">+۴۲</div>
+          <div class="stat__sub"><div class="gauge gauge--tri"><div class="gauge__fill" style="width:71%"></div></div> خوش‌بینی اندک</div>
+        </div>
+      </div>
+      <div class="strip"><div class="strip__in" id="strip">
+        <span class="tick"><b>BTC</b> <span class="mono">$97,482</span> <span class="up">▲ ۲٫۴٪</span></span>
+        <span class="tick"><b>ETH</b> <span class="mono">$3,842</span> <span class="up">▲ ۳٫۱٪</span></span>
+        <span class="tick"><b>SOL</b> <span class="mono">$214.6</span> <span class="up">▲ ۹٫۸٪</span></span>
+        <span class="tick"><b>BNB</b> <span class="mono">$712</span> <span class="up">▲ ۱٫۲٪</span></span>
+        <span class="tick"><b>XRP</b> <span class="mono">$2.41</span> <span class="down">▼ ۰٫۸٪</span></span>
+        <span class="tick"><b>DOGE</b> <span class="mono">$0.318</span> <span class="up">▲ ۴٫۶٪</span></span>
+        <span class="tick"><b>AVAX</b> <span class="mono">$54.2</span> <span class="up">▲ ۲٫۹٪</span></span>
+        <span class="tick"><b>LINK</b> <span class="mono">$27.9</span> <span class="down">▼ ۰٫۴٪</span></span>
+      </div></div>
+    </section>
+
+    <!-- ═══ لایهٔ هفتم ═══ -->
+    <section class="card">
+      <div class="card__head">
+        <h2 class="card__title"><i>📡</i> لایهٔ هفتم — سنتیمنت آن‌چین و ریسک خبری</h2>
+        <div style="display:flex;gap:6px;align-items:center">
+          <span class="badge">تازه · ۲۱:۴۶</span>
+          <button class="btn btn--indigo btn--sm" id="btnSent">🔄 به‌روزرسانی</button>
+        </div>
+      </div>
+      <div class="grid grid--3" style="margin-bottom:13px">
+        <div class="stat">
+          <div class="stat__label">😤 ترس و طمع (خلاف‌گردش)</div>
+          <div class="stat__value">۷۲/۱۰۰</div>
+          <div class="stat__sub">Greed — منبع: alternative.me</div>
+        </div>
+        <div class="stat">
+          <div class="stat__label">🌍 مومنتوم کل بازار ۲۴س</div>
+          <div class="stat__value" style="color:#34d399">+۳٫۲٪</div>
+          <div class="stat__sub">✔ منبع فعال</div>
+        </div>
+        <div class="stat">
+          <div class="stat__label">📰 وزن اخبار آن‌چین</div>
+          <div class="stat__value" style="color:#34d399">+۲۸</div>
+          <div class="stat__sub">۲۴ سرخطی از ۲ فید · پنجرهٔ ۲۴ ساعت</div>
+        </div>
+      </div>
+      <div class="newsrow"><span class="badge badge--ok">▲ خوش‌بینی ۲٫۵</span> Bitcoin ETF inflows hit record high amid institutional adoption</div>
+      <div class="newsrow"><span class="badge badge--ok">▲ خوش‌بینی ۱٫۷</span> Ethereum adoption grows with new institutional partnership</div>
+      <div class="newsrow"><span class="badge badge--bad">▼ ریسک ۲٫۵</span> Exchange hack wipes 200M — users urged to withdraw</div>
+      <p class="hint" style="margin-top:11px">ترکیب نرم سه منبع (۳۵٪ ترس‌وطمع + ۳۰٪ مارکت کلان + ۳۵٪ اخبار) با بازتوزیع وزن هنگام قطع هر منبع — فیلتر ۳۴ «ریسک خبری» در بحران (نمرهٔ ≤ −۰٫۴۵) ورود تازه را بدون تغییر جهت سیگنال متوقف می‌کند.</p>
+    </section>
+
+    <!-- ═══ سیگنال‌های فعال ═══ -->
+    <section class="card">
+      <div class="card__head">
+        <h2 class="card__title"><i>🎯</i> سیگنال‌های فعال — قیف ۹ مرحله‌ای</h2>
+        <span class="badge badge--gold">آخرین اسکن: ۱۲۰ ارز · ۶ خنک‌شده</span>
+      </div>
+      <div style="overflow-x:auto">
+      <table class="tbl">
+        <thead><tr><th>نماد</th><th>سمت</th><th>درجه</th><th>رژیم</th><th>فیلترها</th><th>اعتماد</th><th>ورود</th><th>استاپ</th><th>TP1</th><th>R:R</th><th>حجم</th></tr></thead>
+        <tbody>
+          <tr><td class="mono"><b>SOLUSDT</b></td><td class="up">خرید</td><td><span class="tier tier--a1">A+</span></td><td><span class="chip chip--up">صعودی</span></td><td>۳۱/۳۴</td><td>۸۹</td><td class="mono">214.60</td><td class="mono">207.90</td><td class="mono">226.10</td><td>۱:۳٫۲</td><td>۵٪</td></tr>
+          <tr><td class="mono"><b>ETHUSDT</b></td><td class="up">خرید</td><td><span class="tier tier--a">A</span></td><td><span class="chip chip--up">صعودی</span></td><td>۲۹/۳۴</td><td>۸۴</td><td class="mono">3,842</td><td class="mono">3,725</td><td class="mono">3,980</td><td>۱:۲٫۸</td><td>۴٪</td></tr>
+          <tr><td class="mono"><b>AVAXUSDT</b></td><td class="up">خرید</td><td><span class="tier tier--a">A</span></td><td><span class="chip chip--range">رِنج</span></td><td>۲۸/۳۴</td><td>۸۱</td><td class="mono">54.20</td><td class="mono">52.60</td><td class="mono">56.80</td><td>۱:۲٫۶</td><td>۳٪</td></tr>
+          <tr><td class="mono"><b>LINKUSDT</b></td><td class="down">فروش</td><td><span class="tier tier--b">B</span></td><td><span class="chip chip--down">نزولی</span></td><td>۲۶/۳۴</td><td>۷۴</td><td class="mono">27.90</td><td class="mono">28.80</td><td class="mono">26.10</td><td>۱:۲٫۲</td><td>۲٪</td></tr>
+        </tbody>
+      </table>
+      </div>
+      <p class="hint" style="margin-top:12px">نمایش واقع‌نمای موتور — در نسخهٔ نصب‌شده، هر ردیف با تازه‌سازی لحظه‌ای وب‌سوکت و داوری خودکار ردیاب کامل می‌شود.</p>
+    </section>
+
+    <!-- ═══ یادگیری تطبیقی + ژورنال ═══ -->
+    <div class="grid grid--2">
+      <section class="card">
+        <div class="card__head"><h2 class="card__title"><i>🧠</i> یادگیری تطبیقی — ضرایب رژیم‌آگاه</h2><span class="badge badge--ok">نسل ۲۴ · داوری ۴۱۲</span></div>
+        <table class="tbl">
+          <thead><tr><th>فیلتر</th><th>رأی</th><th>درستی</th><th>ضریب</th><th>وضعیت</th></tr></thead>
+          <tbody>
+            <tr><td>RSI (تأییدگر)</td><td>۴۱۲</td><td>۸۴٪</td><td class="mono up">×۱٫۰۸</td><td><span class="chip chip--up">فعال</span></td></tr>
+            <tr><td>hlv climax (بازار گرم)</td><td>۳۸۸</td><td>۷۲٪</td><td class="mono down">×۰٫۹۲</td><td><span class="chip chip--up">فعال</span></td></tr>
+            <tr><td>فشردگی بولینگر</td><td>۲۰۱</td><td>۶۸٪</td><td class="mono">×۱٫۰۰</td><td><span class="chip chip--range">نسبی</span></td></tr>
+            <tr><td>فیلتر آزمایشی X</td><td>۹۶</td><td>۳۸٪</td><td class="mono down">×۰٫۳۵</td><td><span class="chip chip--down">قرنطینه</span></td></tr>
+          </tbody>
+        </table>
+        <p class="hint" style="margin-top:11px">وزن هر داوری با نیم‌عمر ۴۵ روز محو می‌شود؛ walk-forward ۷۰/۳۰ هر پیشنهاد را قبل از اجرا می‌سنجد و در درستیِ کمتر از ۴۵٪ آن را نگه می‌دارد.</p>
+      </section>
+
+      <section class="card">
+        <div class="card__head"><h2 class="card__title"><i>📓</i> ژورنال فرصت‌های نزدیک</h2><span class="badge">۵ فرصت زیر نظر</span></div>
+        <div class="newsrow"><span class="badge badge--gold">NM</span> NEAR1USDT — ۳۳/۳۴ فیلتر · فقط ۱ فیلتر مانع · زیر نظر داوری</div>
+        <div class="newsrow"><span class="badge badge--gold">NM</span> NEAR2USDT — امتیاز ۵۸ (آستانه ۶۲) · در پنجرهٔ یادگیری</div>
+        <div class="newsrow"><span class="badge badge--gold">NM</span> NEAR3USDT — R:R ۱:۱٫۸ زیر حد ساختاری · رد شد</div>
+        <div style="margin-top:14px" class="grid grid--3">
+          <div class="stat"><div class="stat__label">برد داوری کل</div><div class="stat__value up">۶۴٪</div><div class="stat__sub">۳۱۲ سیگنال بسته‌شده</div></div>
+          <div class="stat"><div class="stat__label">میانگین R</div><div class="stat__value">+۰٫۴۱</div><div class="stat__sub">پس از کارمزد و لغزش</div></div>
+          <div class="stat"><div class="stat__label">حساب کاغذی</div><div class="stat__value">$11,240</div><div class="stat__sub">+۱۲٫۴٪ از شروع</div></div>
+        </div>
+      </section>
+    </div>
+
+    <footer>
+      میلانو تریدینگ اینتلیجنس · نسخهٔ ۵٫۷ · APEX TRADER — Milad Yaghoobi · Meelano Studio Design<br>
+      این نسخهٔ HTML مستقل صرفاً نمایی از داشبورد است؛ تحلیل زنده، وب‌سوکت و داوری در نسخهٔ نصب‌شدهٔ کامل فعال‌اند.
+    </footer>
+  </div>
+</div>
+
+<div class="toast" id="toast">💖</div>
+
+<script>
+(function () {
+  'use strict';
+  var toastEl = document.getElementById('toast');
+  var tTimer = null;
+  function toast(msg) {
+    toastEl.textContent = msg;
+    toastEl.classList.add('on');
+    clearTimeout(tTimer);
+    tTimer = setTimeout(function () { toastEl.classList.remove('on'); }, 2600);
+  }
+  function fa(n) { return String(n).replace(/\d/g, function (d) { return '۰۱۲۳۴۵۶۷۸۹'[+d]; }); }
+
+  document.getElementById('btnScan').addEventListener('click', function () {
+    toast('🛰️ در نسخهٔ کامل: رصد ۱۲۰ ارز با قیف ۹ مرحله‌ای و ۳۴ فیلتر…');
+  });
+  document.getElementById('btnAnalyze').addEventListener('click', function () {
+    toast('🎯 در نسخهٔ کامل: تحلیل تک‌ارز با تأیید MTF و اجماع AI…');
+  });
+  document.getElementById('btnSent').addEventListener('click', function () {
+    toast('📡 در نسخهٔ کامل: ضربهٔ تازه به هر سه منبع سنتیمنت آن‌چین…');
+  });
+
+  /* شبیه‌سازی زندهٔ وب‌سوکت — قیمت‌ها با هر تیک تازه می‌شوند */
+  var base = { BTC: 97482, ETH: 3842, SOL: 214.6, BNB: 712, XRP: 2.41, DOGE: 0.318, AVAX: 54.2, LINK: 27.9 };
+  setInterval(function () {
+    var keys = Object.keys(base);
+    var k = keys[Math.floor(Math.random() * keys.length)];
+    var drift = (Math.random() - 0.5) * 0.003;
+    base[k] = base[k] * (1 + drift);
+    var els = document.querySelectorAll('.tick');
+    for (var i = 0; i < els.length; i++) {
+      var b = els[i].querySelector('b');
+      if (!b || b.textContent !== k) { continue; }
+      var priceEl = els[i].querySelector('.mono');
+      var chgEl = els[i].querySelector('.up, .down');
+      var p = base[k];
+      priceEl.textContent = (p >= 100 ? '$' + Math.round(p).toLocaleString('en-US') : '$' + p.toFixed(p < 1 ? 3 : 1));
+      priceEl.style.color = drift > 0 ? '#34d399' : (drift < 0 ? '#fb7185' : '');
+      if (chgEl) {
+        var chg = drift * 100 * 6;
+        chgEl.className = chg >= 0 ? 'up' : 'down';
+        chgEl.textContent = (chg >= 0 ? '▲ ' : '▼ ') + fa(Math.abs(chg).toFixed(1)) + '٪';
+      }
+    }
+    if (k === 'BTC') { document.getElementById('btcPrice').textContent = '$' + Math.round(base.BTC).toLocaleString('en-US'); }
+    var now = new Date();
+    document.getElementById('wsBadge').textContent = '🛰️ وب‌سوکت: زنده · ' + fa(8 + Math.floor(Math.random() * 9)) + ' پیام/ثانیه';
+  }, 1500);
+})();
+</script>
+</body>
+</html>

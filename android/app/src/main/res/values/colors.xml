@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="meelano_bg">#0b1020</color>
+    <color name="meelano_gold">#f5b731</color>
+    <color name="meelano_gold_light">#ffd76a</color>
+    <color name="meelano_indigo">#5b6cff</color>
+    <color name="meelano_text">#eef2ff</color>
+</resources>
