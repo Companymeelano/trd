@@ -98,23 +98,51 @@ final class Security
 
     /* ── محدودسازی نرخ ───────────────────────────────────────────────── */
 
+    /**
+     * سهمیهٔ نرخ بر اساس IP در فایل سرور (نه نشست!).
+     *
+     * پیاده‌سازی قبلی شمارنده را در $_SESSION نگه می‌داشت؛ یعنی با دور انداختن
+     * کوکی (یا حالت ناشناس) کل سهمیه صفر می‌شد و محافظت ورود در برابر بروت‌فورس
+     * عملاً بی‌اثر بود. اکنون شمارنده سمت سرور و با قفل فایل نگهداری می‌شود.
+     */
     public static function rateLimit(string $bucket, ?int $max = null): array
     {
         $max = $max ?? (int)Config::get('security.rate_limit_per_minute', 60);
-        $key = 'rl_' . sha1($bucket . '|' . self::ip());
         $now = time();
-        $data = $_SESSION[$key] ?? ['count' => 0, 'reset' => $now + 60];
+        $file = MEELANO_CACHE . '/rl_' . sha1($bucket . '|' . self::ip()) . '.json';
 
-        if ($now > (int)$data['reset']) {
-            $data = ['count' => 0, 'reset' => $now + 60];
+        $count = 1;
+        $reset = $now + 60;
+
+        if (!is_dir(MEELANO_CACHE)) {
+            @mkdir(MEELANO_CACHE, 0755, true);
         }
-        $data['count']++;
-        $_SESSION[$key] = $data;
+
+        $handle = @fopen($file, 'c+');
+        if ($handle !== false) {
+            try {
+                if (flock($handle, LOCK_EX)) {
+                    $raw = stream_get_contents($handle);
+                    $data = (is_string($raw) && $raw !== '') ? json_decode($raw, true) : null;
+                    if (is_array($data) && isset($data['count'], $data['reset']) && $now <= (int)$data['reset']) {
+                        $count = (int)$data['count'] + 1;
+                        $reset = (int)$data['reset'];
+                    }
+                    ftruncate($handle, 0);
+                    rewind($handle);
+                    fwrite($handle, json_encode(['count' => $count, 'reset' => $reset]));
+                    fflush($handle);
+                    flock($handle, LOCK_UN);
+                }
+            } finally {
+                fclose($handle);
+            }
+        }
 
         return [
-            'allowed' => $data['count'] <= $max,
-            'remaining' => max(0, $max - (int)$data['count']),
-            'reset_in' => max(0, (int)$data['reset'] - $now),
+            'allowed' => $count <= $max,
+            'remaining' => max(0, $max - $count),
+            'reset_in' => max(0, $reset - $now),
         ];
     }
 
@@ -168,13 +196,25 @@ final class Security
         }
     }
 
+    /**
+     * IP واقعی کلاینت.
+     *
+     * سرصفحه‌های CF-Connecting-IP / X-Forwarded-For تنها زمانی خوانده می‌شوند
+     * که `security.trust_proxy_headers` در تنظیمات روشن باشد (پشت Cloudflare/
+     * پروکسی معتبر)؛ در غیر این صورت هر کلاینت می‌توانست با جعل سرصفحه، سهمیهٔ
+     * نرخ و ممیزی را دور بزند.
+     */
     public static function ip(): string
     {
-        $candidates = [
-            $_SERVER['HTTP_CF_CONNECTING_IP'] ?? '',
-            $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '',
-            $_SERVER['REMOTE_ADDR'] ?? '',
-        ];
+        $remote = (string)($_SERVER['REMOTE_ADDR'] ?? '');
+        $trustProxy = (bool)Config::get('security.trust_proxy_headers', false);
+        $candidates = $trustProxy
+            ? [
+                $_SERVER['HTTP_CF_CONNECTING_IP'] ?? '',
+                $_SERVER['HTTP_X_FORWARDED_FOR'] ?? '',
+                $remote,
+            ]
+            : [$remote];
         foreach ($candidates as $c) {
             $c = trim(explode(',', (string)$c)[0]);
             if ($c !== '' && filter_var($c, FILTER_VALIDATE_IP)) {

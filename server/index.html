@@ -1,0 +1,980 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#05030b">
+<title>MeeLano Trading Intelligence 4.0 Pro</title>
+<style>
+:root{
+  --bg:#05030b;--panel:#0d0918;--panel2:#151027;--line:rgba(198,83,255,.27);
+  --text:#fbf7ff;--muted:#a8a0b9;--pink:#ff31d9;--purple:#8e28ff;--cyan:#39d9ff;
+  --green:#24e27a;--red:#ff4d76;--amber:#ffc45b;--shadow:0 24px 70px #0008;--glow:0 0 36px #bd31ff3d;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:radial-gradient(1100px 700px at 90% -5%,#9c20ff22,transparent 64%),radial-gradient(850px 520px at 8% 18%,#3a105322,transparent 68%),linear-gradient(145deg,#05030a,#010105);color:var(--text);font-family:Tahoma,"Segoe UI",Arial,sans-serif}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+button:disabled{opacity:.55;cursor:not-allowed;transform:none!important}
+.app{min-height:100vh;display:flex;flex-direction:column}
+.top{min-height:72px;position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:14px;padding:10px clamp(12px,3vw,30px);border-bottom:1px solid rgba(255,255,255,.08);background:rgba(5,3,11,.86);backdrop-filter:blur(24px)}
+.brand{margin-right:auto;display:flex;flex-direction:column;gap:3px;min-width:0}
+.brand b{font-size:16px;letter-spacing:0;background:linear-gradient(135deg,#fff,#d48aff);-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.brand small{color:var(--muted);font-size:8px;line-height:1.6}
+.logo{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;font-weight:900;font-size:15px;background:linear-gradient(145deg,#ff9cff,#9215ff 60%,#4c0bc3);box-shadow:0 0 25px rgba(239,40,255,.4)}
+.chips{display:flex;gap:6px;overflow:auto;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{height:29px;display:flex;align-items:center;gap:6px;padding:0 10px;border:1px solid var(--line);border-radius:99px;background:rgba(255,255,255,.04);font-size:8px;white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--pink);box-shadow:0 0 10px currentColor}
+.dot.ok{background:var(--green)}
+.dot.bad{background:var(--red)}
+.dot.warn{background:var(--amber)}
+.shell{max-width:1680px;width:100%;margin:0 auto;padding:18px;flex:1;display:flex;flex-direction:column;gap:16px}
+.navbar{display:flex;gap:6px;overflow:auto;scrollbar-width:none;padding:6px;border:1px solid var(--line);border-radius:18px;background:rgba(13,9,24,.82);backdrop-filter:blur(16px);box-shadow:var(--shadow)}
+.navbar::-webkit-scrollbar{display:none}
+.nav-item{flex:0 0 auto;border:1px solid transparent;border-radius:12px;background:transparent;color:var(--muted);padding:10px 16px;font-size:9px;font-weight:700;display:flex;align-items:center;gap:8px;transition:.2s;letter-spacing:0}
+.nav-item svg{width:15px;height:15px;fill:currentColor}
+.nav-item:hover{background:rgba(255,255,255,.05);color:#fff}
+.nav-item.active{background:linear-gradient(145deg,#ff3de0,#8e28ff);color:#fff;border-color:rgba(255,255,255,.2);box-shadow:0 0 25px rgba(221,45,255,.35);font-weight:900}
+.workspace{border:1px solid var(--line);border-radius:24px;background:linear-gradient(145deg,rgba(20,12,37,.86),rgba(5,5,13,.95));box-shadow:var(--shadow);overflow:hidden;backdrop-filter:blur(20px);position:relative}
+.wh{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.07);background:rgba(255,255,255,.02)}
+.title{display:flex;align-items:center;gap:12px;min-width:0}
+.orb{width:42px;height:42px;border-radius:14px;background:radial-gradient(circle at 35% 25%,#ffa7ff,#a91cff 48%,#3d0798);display:grid;place-items:center;box-shadow:0 0 20px rgba(213,38,255,.4)}
+.title b{font-size:13px}
+.title small{display:block;color:var(--muted);font-size:8px;margin-top:3px;line-height:1.6}
+.badge{font-size:8px;padding:5px 10px;border:1px solid rgba(255,255,255,.15);border-radius:99px;background:rgba(255,255,255,.06);font-weight:700;white-space:nowrap}
+.body{padding:20px}
+.view{display:none}
+.view.active{display:block;animation:fadeIn .25s ease}
+@keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.grid{display:grid;gap:12px}
+.g4{grid-template-columns:repeat(4,1fr)}
+.g3{grid-template-columns:repeat(3,1fr)}
+.g2{grid-template-columns:repeat(2,1fr)}
+.card{border:1px solid rgba(164,123,218,.22);border-radius:18px;background:linear-gradient(180deg,rgba(16,14,32,.9),rgba(7,7,18,.95));padding:16px;box-shadow:inset 0 1px rgba(255,255,255,.08);position:relative}
+.card h3{margin:0 0 12px;font-size:11px;display:flex;align-items:center;gap:8px;letter-spacing:0}
+.muted,.tiny{color:var(--muted);font-size:8px}
+.stat{min-height:90px;padding:14px;border:1px solid rgba(164,123,218,.2);border-radius:16px;background:rgba(8,8,18,.7);display:flex;flex-direction:column;justify-content:space-between}
+.stat small{color:var(--muted);font-size:8px}.stat strong{display:block;font-size:19px;margin-top:4px}
+.good{color:var(--green)!important}.bad{color:var(--red)!important}.warn{color:var(--amber)!important}.info{color:var(--cyan)!important}
+.metric{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px dashed rgba(255,255,255,.07);font-size:9px;color:#aaa2b7}
+.metric:last-child{border-bottom:0}.metric b{color:#fff}
+.mono{font-family:Consolas,monospace;direction:ltr;unicode-bidi:plaintext}
+.form{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.field{display:flex;flex-direction:column;gap:6px}.field label{font-size:8px;color:var(--muted);line-height:1.5}
+input,select,textarea{width:100%;min-height:42px;border:1px solid rgba(164,123,218,.3);border-radius:12px;background:#080712;color:#fff;padding:10px;outline:none;transition:.2s}
+input:focus,select:focus,textarea:focus{border-color:#d456ff;box-shadow:0 0 0 3px rgba(212,86,255,.15)}
+textarea{resize:vertical;min-height:80px}
+.actions{display:flex;gap:8px;align-items:end}
+.btn{min-height:42px;border:1px solid rgba(218,89,255,.6);border-radius:12px;background:linear-gradient(145deg,#741bd0,#2d0a5d);padding:10px 16px;font-size:9px;font-weight:900;box-shadow:inset 0 1px rgba(255,255,255,.2),0 8px 20px rgba(76,13,120,.3);transition:.2s;letter-spacing:0}
+.btn:hover{transform:translateY(-1px);box-shadow:0 0 25px rgba(218,89,255,.4)}
+.btn.ghost{background:rgba(20,17,36,.8);border-color:rgba(255,255,255,.15)}
+.btn.action-tg{background:linear-gradient(145deg,#2481cc,#17568c);border-color:#4bb4ff}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.bar{height:8px;background:rgba(255,255,255,.08);border-radius:99px;overflow:hidden;position:relative;box-shadow:inset 0 1px 1px rgba(255,255,255,.08)}
+.bar i{display:block;height:100%;width:0;border-radius:inherit;background:linear-gradient(90deg,#8e29ff,#ff35d8,#39d9ff);transition:width .45s ease}
+.ring{width:130px;height:130px;border-radius:50%;display:grid;place-items:center;margin:10px auto;background:conic-gradient(#dd2dff 0 0%,rgba(255,255,255,.08) 0);position:relative;box-shadow:0 0 30px rgba(202,44,255,.3)}
+.ring:after{content:"";position:absolute;inset:10px;border-radius:50%;background:#080711;border:1px solid rgba(255,255,255,.1)}
+.ringin{position:relative;z-index:1;text-align:center}.ringin b{font-size:22px}.ringin small{display:block;color:var(--muted);font-size:8px;margin-top:2px}
+.scan{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.coin{border:1px solid rgba(164,123,218,.25);border-radius:16px;background:linear-gradient(145deg,rgba(26,16,44,.9),rgba(7,7,16,.9));padding:12px;cursor:pointer;transition:.2s}
+.coin:hover{border-color:rgba(226,101,255,.7);transform:translateY(-2px);box-shadow:0 5px 20px rgba(164,123,218,.2)}
+.coinhead{display:flex;justify-content:space-between;gap:6px;align-items:center}.coin b{font-size:10px}.coin .price{font:13px Consolas;margin:8px 0}
+.mini{height:6px;border-radius:99px;background:rgba(27,23,39,1);overflow:hidden}.mini i{display:block;height:100%;background:linear-gradient(90deg,#8225ff,#ff31d8)}
+.tablewrap{overflow:auto;border:1px solid rgba(164,123,218,.2);border-radius:14px}
+.table{width:100%;min-width:600px;border-collapse:collapse}
+.table th,.table td{padding:10px 12px;font-size:8px;text-align:right;border-bottom:1px solid rgba(255,255,255,.07)}
+.table th{color:#a9a0b5;background:rgba(255,255,255,.04);font-weight:700}
+.table tr:last-child td{border-bottom:0}
+.footer{display:flex;justify-content:space-between;gap:10px;padding:15px 20px;border-top:1px solid rgba(255,255,255,.08);color:var(--muted);font-size:8px;background:rgba(5,3,11,.6);border-radius:0 0 24px 24px;flex-wrap:wrap}
+.toast{position:fixed;left:20px;bottom:20px;z-index:100;background:#151126;border:1px solid rgba(255,255,255,.2);border-radius:14px;padding:12px 18px;font-size:9px;box-shadow:var(--shadow);opacity:0;transform:translateY(20px);pointer-events:none;transition:.25s;max-width:min(92vw,380px)}
+.toast.show{opacity:1;transform:none}.toast.ok{border-color:rgba(36,226,122,.6)}.toast.error{border-color:rgba(255,77,118,.6)}.toast.warn{border-color:rgba(255,196,91,.6)}
+.statusline{display:flex;gap:6px;align-items:center;justify-content:flex-end;font-size:8px;color:var(--muted);flex-wrap:wrap}
+.statusline .dot{flex:0 0 auto}
+@media(max-width:1200px){.g4,.form{grid-template-columns:repeat(2,1fr)}.scan{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:768px){.g2,.g3,.g4,.form{grid-template-columns:1fr}.scan{grid-template-columns:1fr 1fr}.top{height:auto;flex-wrap:wrap;padding:10px}.brand{order:2}.logo{order:1}.chips{order:3;width:100%}.shell{padding:12px}.body{padding:12px}.wh{padding:14px 16px}.footer{padding:12px 16px}.actions{display:grid;grid-template-columns:1fr 1fr}}
+@media(max-width:420px){.scan{grid-template-columns:1fr}.actions{grid-template-columns:1fr}.nav-item{padding:10px 12px}}
+</style>
+</head>
+<body>
+<div class="app">
+<header class="top">
+  <div class="logo">ML</div>
+  <div class="brand">
+    <b>MeeLano Trading Intelligence 4.0 Pro</b>
+    <small>سیستم فرماندهی چندلایه هوش مصنوعی · تحلیل تکنیکال، فاندامنتال و ریسک</small>
+  </div>
+  <div class="chips">
+    <span class="chip">Core <i id="coreDot" class="dot"></i></span>
+    <span class="chip">Auth <i id="authDot" class="dot"></i></span>
+    <span class="chip">Market API <i id="apiDot" class="dot"></i></span>
+    <span class="chip">SQLite <i id="dbDot" class="dot"></i></span>
+  </div>
+</header>
+
+<div class="shell">
+  <nav class="navbar">
+    <button class="nav-item active" data-view="dashboard"><svg viewBox="0 0 24 24"><path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/></svg>داشبورد فرماندهی</button>
+    <button class="nav-item" data-view="analysis"><svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>اتاق تحلیل ۴گانه</button>
+    <button class="nav-item" data-view="market"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm0 18a8 8 0 1 1 8-8 8 8 0 0 1-8 8zm1-13h-2v6h6v-2h-4z"/></svg>رادار بازار و اسکنر</button>
+    <button class="nav-item" data-view="backtest"><svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>تست استراتژی (بک‌تست)</button>
+    <button class="nav-item" data-view="risk"><svg viewBox="0 0 24 24"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4zm0 10.99h7c-.53 4.12-3.28 7.79-7 8.94V12H5V6.3l7-3.11v8.8z"/></svg>مانیتور ریسک و پوزیشن</button>
+    <button class="nav-item" data-view="history"><svg viewBox="0 0 24 24"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v-2zm-3-5V3.5L18.5 9H13z"/></svg>ژورنال و تاریخچه سیگنال</button>
+    <button class="nav-item" data-view="settings"><svg viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>مرکز کنترل و تنظیمات</button>
+  </nav>
+
+  <section class="workspace">
+    <div class="wh">
+      <div class="title">
+        <div class="orb">✦</div>
+        <div>
+          <b id="wt">داشبورد فرماندهی</b>
+          <small id="ws">وضعیت زنده، تصمیم نهایی و عملکرد سیستم</small>
+        </div>
+      </div>
+      <div class="statusline">
+        <span class="badge" id="wb">CORE 4.0 READY</span>
+      </div>
+    </div>
+
+    <div class="body">
+      <div class="view active" id="dashboard">
+        <div class="grid g4">
+          <div class="stat"><small>Decision</small><strong id="decision">WAIT</strong></div>
+          <div class="stat"><small>Final Score</small><strong id="score" class="info">—</strong></div>
+          <div class="stat"><small>Rejected By</small><strong id="gate">—</strong></div>
+          <div class="stat"><small>Confidence</small><strong id="conf">0%</strong></div>
+        </div>
+        <div class="grid g2" style="margin-top:12px">
+          <div class="card"><h3>امتیازدهی چهار خبره (4 Gates)</h3><div id="gatesDash"></div></div>
+          <div class="card">
+            <h3>خلاصه وضعیت بازار</h3>
+            <div class="metric"><span>Symbol</span><b id="dSymbol">—</b></div>
+            <div class="metric"><span>BTC Guard</span><b id="dBtc">—</b></div>
+            <div class="metric"><span>Price</span><b id="dPrice" class="mono">—</b></div>
+            <div class="metric"><span>Order Book Imbalance</span><b id="dOb">—</b></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:12px">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+            <h3 style="margin:0">تصمیم نهایی و جزئیات</h3>
+            <button class="btn action-tg" id="sendQuickTg" style="padding:6px 12px;min-height:32px;font-size:8px">ارسال به تلگرام/واتس‌اپ</button>
+          </div>
+          <p class="tiny" id="dReason" style="line-height:1.8">هنوز تحلیلی اجرا نشده است. برای شروع به بخش «اتاق تحلیل ۴گانه» بروید.</p>
+          <div class="bar" style="margin-top:10px"><i id="scoreBar"></i></div>
+        </div>
+      </div>
+
+      <div class="view" id="analysis">
+        <div class="card">
+          <h3>اتاق اجرای تحلیل چندلایه</h3>
+          <div class="form">
+            <div class="field"><label>Core API Token</label><input id="token" type="password" autocomplete="off" placeholder="APP_TOKEN"></div>
+            <div class="field">
+              <label>Symbol</label>
+              <select id="symbol">
+                <option>BTCUSDT</option><option>ETHUSDT</option><option>BNBUSDT</option><option>SOLUSDT</option>
+                <option>XRPUSDT</option><option>ADAUSDT</option><option>DOGEUSDT</option><option>AVAXUSDT</option>
+                <option>LINKUSDT</option><option>TONUSDT</option><option>TRXUSDT</option><option>DOTUSDT</option>
+              </select>
+            </div>
+            <div class="field"><label>Timeframe</label><select id="tf"><option>15m</option><option selected>1h</option><option>4h</option><option>1d</option></select></div>
+            <div class="field"><label>Capital (USD)</label><input id="capital" type="number" min="10" step="10" placeholder="مثلا 1000"></div>
+            <div class="field"><label>Risk % (حداکثر ۱٪)</label><input id="risk" type="number" min="0.1" max="1" step="0.1" value="1"></div>
+            <div class="field"><label>News Status</label><select id="news"><option value="normal">Normal</option><option value="cpi">CPI / High Impact</option></select></div>
+            <div class="actions" style="grid-column: span 2">
+              <button class="btn ghost" id="auth">بررسی توکن</button>
+              <button class="btn" id="analyze" style="flex:1">اجرای تحلیل کامل ۴گانه</button>
+            </div>
+          </div>
+        </div>
+        <div class="grid g2" style="margin-top:12px">
+          <div class="card">
+            <h3>01 · Quantitative (30%)</h3>
+            <div class="bar" style="margin-bottom:10px"><i id="qBar"></i></div>
+            <div class="metric"><span>Volume Ratio</span><b id="qv">—</b></div>
+            <div class="metric"><span>Momentum</span><b id="qm">—</b></div>
+            <div class="metric"><span>ATR %</span><b id="qa">—</b></div>
+            <div class="metric"><span>Whale Score</span><b id="qw">—</b></div>
+          </div>
+          <div class="card">
+            <h3>02 · Technical (35%)</h3>
+            <div class="bar" style="margin-bottom:10px"><i id="tBar"></i></div>
+            <div class="metric"><span>EMA 9/21/50</span><b id="te">—</b></div>
+            <div class="metric"><span>RSI</span><b id="tr">—</b></div>
+            <div class="metric"><span>MACD Histogram</span><b id="tm">—</b></div>
+            <div class="metric"><span>Ichimoku Cloud</span><b id="ti">—</b></div>
+          </div>
+          <div class="card">
+            <h3>03 · Sentiment & Macro (15%)</h3>
+            <div class="bar" style="margin-bottom:10px"><i id="sBar"></i></div>
+            <div class="metric"><span>BTC Regime</span><b id="sbtc">—</b></div>
+            <div class="metric"><span>News Impact</span><b id="snews">—</b></div>
+          </div>
+          <div class="card">
+            <h3>04 · Risk Management (20%)</h3>
+            <div class="bar" style="margin-bottom:10px"><i id="rBar"></i></div>
+            <div class="metric"><span>Risk/Reward</span><b id="rr">—</b></div>
+            <div class="metric"><span>Capital Risk %</span><b id="rp">—</b></div>
+            <div class="metric"><span>Position Size</span><b id="pos">—</b></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="view" id="market">
+        <div class="grid g2">
+          <div class="card">
+            <h3>Bitcoin Market Guard</h3>
+            <div class="ring" id="btcRing"><div class="ringin"><b id="btc">—</b><small>Regime</small></div></div>
+            <div class="metric"><span>Status</span><b id="btcReason">—</b></div>
+          </div>
+          <div class="card">
+            <h3>USDT Scanner & Ranking</h3>
+            <button class="btn" id="scan" style="width:100%;margin-bottom:10px">اسکن زنده بازار و رتبه‌بندی</button>
+            <div class="scan" id="scanGrid"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="view" id="backtest">
+        <div class="grid g2">
+          <div class="card">
+            <h3>بک‌تست استراتژی</h3>
+            <div class="metric"><span>Symbol</span><b id="btSym">—</b></div>
+            <div class="metric"><span>Timeframe</span><b id="btTf">—</b></div>
+            <div class="field" style="margin-top:10px"><label>Capital (USD)</label><input id="btCapital" type="number" min="10" step="10" placeholder="مثلا 1000"></div>
+            <div class="field" style="margin-top:10px"><label>Risk % (حداکثر ۱٪)</label><input id="btRisk" type="number" min="0.1" max="1" step="0.1" value="1"></div>
+            <button class="btn" id="bt" style="width:100%;margin-top:12px">اجرای بک‌تست تاریخی</button>
+            <p class="tiny" id="btMsg" style="line-height:1.8;margin-top:10px">ارزیابی سودآوری با استفاده از داده‌های گذشته بازار.</p>
+          </div>
+          <div class="card">
+            <h3>گزارش عملکرد (Performance)</h3>
+            <div class="grid g2">
+              <div class="stat"><small>Win Rate</small><strong id="win">—</strong></div>
+              <div class="stat"><small>Profit Factor</small><strong id="pf">—</strong></div>
+              <div class="stat"><small>Net PnL %</small><strong id="pnl">—</strong></div>
+              <div class="stat"><small>Max Drawdown</small><strong id="dd">—</strong></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="view" id="risk">
+        <div class="grid g2">
+          <div class="card">
+            <h3>سلامت ریسک معامله</h3>
+            <div class="ring" id="riskRing"><div class="ringin"><b id="riskHealth">0%</b><small>Risk Health</small></div></div>
+            <div class="metric"><span>Max Risk Allowed</span><b class="good">1%</b></div>
+            <div class="metric"><span>Min Required RR</span><b>2.5</b></div>
+            <div class="metric"><span>Current RR</span><b id="riskRr">—</b></div>
+          </div>
+          <div class="card">
+            <h3>نقشه راه معامله (Trade Plan)</h3>
+            <div class="metric"><span>Entry Zone</span><b id="entry">—</b></div>
+            <div class="metric"><span>Stop Loss</span><b id="stop">—</b></div>
+            <div class="metric"><span>Take Profit 1</span><b id="tp1">—</b></div>
+            <div class="metric"><span>Take Profit 2</span><b id="tp2">—</b></div>
+            <div class="metric"><span>Suggested Position</span><b id="rpos">—</b></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="view" id="history">
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
+            <div><h3 style="margin-bottom:4px">ژورنال و تاریخچه سیگنال‌ها</h3><span class="tiny">ثبت خودکار تمامی تحلیل‌ها در پایگاه داده SQLite</span></div>
+            <button class="btn ghost" id="refresh">بازخوانی لیست</button>
+          </div>
+          <div class="tablewrap" style="margin-top:12px">
+            <table class="table">
+              <thead><tr><th>Symbol</th><th>TF</th><th>Decision</th><th>Score</th><th>Created At</th></tr></thead>
+              <tbody id="historyBody"><tr><td colspan="5">برای مشاهده تاریخچه، ابتدا توکن را در بخش تنظیمات یا اتاق تحلیل وارد کنید.</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="view" id="settings">
+        <div class="grid g2">
+          <div class="card">
+            <h3>تنظیمات توکن و احراز هویت هسته</h3>
+            <div class="field" style="margin-bottom:12px">
+              <label>Core API Token (ذخیره امن در مرورگر)</label>
+              <input id="setTokenInput" type="password" placeholder="APP_TOKEN خود را وارد کنید...">
+            </div>
+            <button class="btn" id="saveTokenBtn" style="width:100%">ذخیره توکن در حافظه محلی</button>
+          </div>
+          <div class="card">
+            <h3>یکپارچه‌سازی مدل‌های هوش مصنوعی (AI Multi-Model Hub)</h3>
+            <div class="field" style="margin-bottom:8px"><label>OpenAI API Key (GPT-5 / 4o - تحلیل تکنیکال و فاندامنتال)</label><input id="aiOpenAI" type="password" placeholder="sk-..."></div>
+            <div class="field" style="margin-bottom:8px"><label>Anthropic API Key (Claude 3.5 Sonnet - سنتیمنت و اخبار)</label><input id="aiClaude" type="password" placeholder="sk-ant-..."></div>
+            <div class="field" style="margin-bottom:8px"><label>Google Gemini API Key (Gemini 1.5 Pro - پردازش حجم بالا و Order Book)</label><input id="aiGemini" type="password" placeholder="AIza..."></div>
+            <div class="field" style="margin-bottom:8px"><label>DeepSeek API Key (DeepSeek V3 / R1 - مدل‌سازی ریاضی و فرمول‌های کمی)</label><input id="aiDeepSeek" type="password" placeholder="sk-..."></div>
+            <button class="btn" id="saveAiKeys" style="width:100%;margin-top:6px">ذخیره کلیدهای هوش مصنوعی</button>
+          </div>
+        </div>
+        <div class="grid g2" style="margin-top:12px">
+          <div class="card">
+            <h3>تنظیمات کانال‌های اطلاع‌رسانی (Telegram & WhatsApp Webhook)</h3>
+            <div class="field" style="margin-bottom:8px"><label>Telegram Bot Token</label><input id="tgToken" type="text" placeholder="123456:ABC-DEF..."></div>
+            <div class="field" style="margin-bottom:8px"><label>Telegram Chat ID</label><input id="tgChatId" type="text" placeholder="@channel یا -100..."></div>
+            <div class="field" style="margin-bottom:8px"><label>Webhook URL (برای واتس‌اپ / سرور سفارشی)</label><input id="webhookUrl" type="text" placeholder="https://api.yourserver.com/webhook"></div>
+            <div class="actions" style="margin-top:8px">
+              <button class="btn ghost" id="testAlerts">تست ارسال اعلان</button>
+              <button class="btn" id="saveAlerts" style="flex:1">ذخیره تنظیمات اعلان</button>
+            </div>
+          </div>
+          <div class="card">
+            <h3>سیاست‌های هسته و پایداری (Engine Policy)</h3>
+            <div class="metric"><span>Quantitative Weight</span><b>30% · Veto</b></div>
+            <div class="metric"><span>Technical Weight</span><b>35% · Veto</b></div>
+            <div class="metric"><span>Sentiment/Macro Weight</span><b>15% · Veto</b></div>
+            <div class="metric"><span>Risk Management Weight</span><b>20% · Veto</b></div>
+            <div class="metric"><span>ACCEPT Threshold</span><b>Final Score ≥ 75</b></div>
+            <div class="metric"><span>Hard Stop Loss & RR</span><b>RR ≥ 2.5</b></div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</div>
+
+<footer class="footer">
+  <span><b>MeeLano Trading Intelligence 4.0 Pro</b> · Core Engine & Multi-AI Hub</span>
+  <span>Mobile First PWA · 3D Glassmorphism · SQLite Audit</span>
+  <span>Designed for Milat Yaghoubi-Nejad</span>
+</footer>
+<div id="toast" class="toast" aria-live="polite"></div>
+</div>
+
+<script>
+'use strict';
+
+const APP_BASE = new URL('.', window.location.href).href;
+const API_BASE = new URL('api/', APP_BASE).href;
+const LS_KEYS = {
+  token: 'meelano_token',
+  ai_openai: 'ai_openai',
+  ai_claude: 'ai_claude',
+  ai_gemini: 'ai_gemini',
+  ai_deepseek: 'ai_deepseek',
+  tg_token: 'tg_token',
+  tg_chatid: 'tg_chatid',
+  webhook_url: 'webhook_url'
+};
+const VIEW_META = {
+  dashboard: ['داشبورد فرماندهی', 'وضعیت زنده، تصمیم نهایی و عملکرد سیستم'],
+  analysis: ['اتاق تحلیل ۴گانه', 'بررسی تخصصی Quantitative، Technical، Sentiment و Risk'],
+  market: ['رادار بازار و اسکنر', 'Bitcoin Guard و رتبه‌بندی زنده‌ی نمادها'],
+  backtest: ['تست استراتژی (بک‌تست)', 'ارزیابی تاریخی عملکرد موتور معاملاتی'],
+  risk: ['مانیتور ریسک و پوزیشن', 'مدیریت دقیق حد ضرر، اهداف و حجم ورود'],
+  history: ['ژورنال و تاریخچه سیگنال', 'آرشیو امن و استعلام وضعیت پایگاه داده'],
+  settings: ['مرکز کنترل و تنظیمات', 'توکن‌های امنیتی، مدل‌های AI و وب‌هوک تلگرام/واتس‌اپ']
+};
+const REQUEST_IDS = ['analyze','auth','refresh','bt','scan','saveTokenBtn','saveAiKeys','saveAlerts','testAlerts','sendQuickTg'];
+const TOKEN_INPUT_IDS = ['token','setTokenInput'];
+const SETTINGS_MAP = [
+  ['aiOpenAI','ai_openai'],
+  ['aiClaude','ai_claude'],
+  ['aiGemini','ai_gemini'],
+  ['aiDeepSeek','ai_deepseek'],
+  ['tgToken','tg_token'],
+  ['tgChatId','tg_chatid'],
+  ['webhookUrl','webhook_url']
+];
+const $ = (id) => document.getElementById(id);
+const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
+const clamp = (n, min, max) => Math.min(max, Math.max(min, n));
+const num = (v, fallback = null) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : fallback;
+};
+const fmt = (v, d = 3) => {
+  if (v === null || v === undefined || v === '') return '—';
+  const n = Number(v);
+  return Number.isFinite(n) ? n.toLocaleString('en-US', { maximumFractionDigits: d }) : String(v);
+};
+const pct = (v, d = 1) => v === null || v === undefined || v === '' ? '—' : `${fmt(v, d)}%`;
+const escapeHTML = (v) => String(v ?? '').replace(/[&<>'"]/g, (ch) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":"&#39;",'"':'&quot;'}[ch]));
+const el = (tag, attrs = {}, children = []) => {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v === null || v === undefined) continue;
+    if (k === 'className') node.className = v;
+    else if (k === 'text') node.textContent = v;
+    else if (k === 'html') node.innerHTML = v;
+    else if (k.startsWith('data-')) node.setAttribute(k, v);
+    else if (k in node) node[k] = v;
+    else node.setAttribute(k, v);
+  }
+  for (const child of [].concat(children || [])) {
+    if (child === null || child === undefined) continue;
+    node.appendChild(typeof child === 'string' ? document.createTextNode(child) : child);
+  }
+  return node;
+};
+const setText = (id, value, className) => {
+  const node = $(id);
+  if (!node) return;
+  node.textContent = value ?? '—';
+  if (className !== undefined) node.className = className;
+};
+const setClass = (id, className) => {
+  const node = $(id);
+  if (node) node.className = className;
+};
+const setBar = (id, value) => {
+  const node = $(id);
+  if (node) node.style.width = `${clamp(Number(value) || 0, 0, 100)}%`;
+};
+const setRing = (id, value, color = '#dd2dff') => {
+  const node = $(id);
+  if (node) node.style.background = `conic-gradient(${color} 0 ${clamp(Number(value) || 0, 0, 100)}%,rgba(255,255,255,.08) 0)`;
+};
+const toast = (message, kind = '') => {
+  const node = $('toast');
+  if (!node) return;
+  node.textContent = message;
+  node.className = `toast show ${kind}`.trim();
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(() => { node.className = 'toast'; }, 3200);
+};
+const setBusy = (busy) => {
+  REQUEST_IDS.forEach((id) => {
+    const node = $(id);
+    if (node) node.disabled = busy;
+  });
+};
+const setStatusDot = (id, state) => {
+  const node = $(id);
+  if (!node) return;
+  node.className = `dot ${state || ''}`.trim();
+};
+const titleFor = (viewName) => VIEW_META[viewName] || VIEW_META.dashboard;
+const currentToken = () => String($('token')?.value || $('setTokenInput')?.value || '').trim();
+const getSettings = () => {
+  const out = {};
+  SETTINGS_MAP.forEach(([id, key]) => { out[key] = String($(id)?.value || '').trim(); });
+  return out;
+};
+const normalizeSignal = (payload) => {
+  if (!payload) return null;
+  if (Array.isArray(payload)) return payload[0] || null;
+  if (isObj(payload.data) && !Array.isArray(payload.data)) return payload.data;
+  if (Array.isArray(payload.data)) return payload.data[0] || null;
+  return payload;
+};
+const normalizeResults = (payload) => {
+  const root = normalizeSignal(payload) || payload;
+  if (!root) return [];
+  if (Array.isArray(root.results)) return root.results;
+  if (isObj(root.results)) return Object.entries(root.results).map(([gate, value]) => isObj(value) ? { gate, ...value } : { gate, value });
+  if (isObj(root.gates)) return Object.entries(root.gates).map(([gate, value]) => isObj(value) ? { gate, ...value } : { gate, value });
+  if (Array.isArray(root.gates)) return root.gates;
+  if (Array.isArray(root.items)) return root.items;
+  return isObj(root) ? Object.values(root).filter(isObj) : [];
+};
+function findGate(results, gateName) {
+  const list = Array.isArray(results) ? results : normalizeResults(results);
+  const aliases = {
+    quantitative: ['quantitative', 'q'],
+    technical: ['technical', 't'],
+    sentiment_macro: ['sentiment_macro', 'sentiment', 'macro', 's'],
+    risk_management: ['risk_management', 'risk', 'r']
+  };
+  const wanted = aliases[gateName] || [gateName];
+  if (Array.isArray(list)) {
+    return list.find((item) => {
+      if (!item || typeof item !== 'object') return false;
+      const vals = [item.gate, item.name, item.key, item.id, item.type].filter(Boolean).map(String).map((s) => s.toLowerCase());
+      return wanted.some((w) => vals.includes(w));
+    }) || null;
+  }
+  if (isObj(list)) {
+    for (const key of wanted) {
+      if (isObj(list[key])) return list[key];
+    }
+  }
+  return null;
+}
+function planFrom(root) {
+  const plan = root && typeof root.trade_plan === 'object' ? root.trade_plan : root;
+  return isObj(plan) ? plan : {};
+}
+function decisionClass(v) {
+  return v === 'ACCEPT' ? 'good' : v === 'REJECT' ? 'bad' : v === 'WATCH' ? 'warn' : 'info';
+}
+function signalText(signal) {
+  const root = normalizeSignal(signal) || {};
+  const plan = planFrom(root);
+  const entry = plan.entry_zone ? `${fmt(plan.entry_zone.min, 8)} — ${fmt(plan.entry_zone.max, 8)}` : '—';
+  const tps = Array.isArray(plan.take_profits) ? plan.take_profits.map((tp, i) => `<li>TP${i + 1}: ${escapeHTML(fmt(tp && tp.price, 8))}</li>`).join('') : '';
+  const rejected = Array.isArray(root.rejected_by) ? root.rejected_by.join(' · ') : (root.rejected_by || '—');
+  return [
+    '<div dir="rtl">',
+    `<strong>${escapeHTML(root.symbol || '—')}</strong> · ${escapeHTML(root.timeframe || '—')}<br>`,
+    `Decision: <strong>${escapeHTML(root.decision || '—')}</strong><br>`,
+    `Score: ${escapeHTML(fmt(root.final_score ?? root.score, 2))} · Confidence: ${escapeHTML(pct(root.confidence, 1))}<br>`,
+    `RR: ${escapeHTML(fmt(plan.risk?.risk_reward_ratio, 2))} · Position: ${escapeHTML(fmt(plan.risk?.suggested_position_size, 2))}<br>`,
+    `Rejected By: ${escapeHTML(rejected)}<br>`,
+    `Entry: ${escapeHTML(entry)}<br>`,
+    `SL: ${escapeHTML(fmt(plan.stop_loss, 8))}<br>`,
+    `<ul style="margin:8px 0 0;padding-right:18px">${tps || '<li>TP: —</li>'}</ul>`,
+    '</div>'
+  ].join('');
+}
+async function api(path, options = {}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), Number(options.timeout || 20000));
+  const headers = new Headers(options.headers || {});
+  headers.set('Accept', 'application/json');
+  if (options.auth !== false) {
+    const t = currentToken();
+    if (!t) throw new Error('توکن API هسته را در بخش تنظیمات یا اتاق تحلیل وارد کنید.');
+    headers.set('X-API-Token', t);
+  }
+  let body = options.body;
+  if (body && typeof body === 'object' && !(body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json');
+    body = JSON.stringify(body);
+  }
+  const request = {
+    method: options.method || 'GET',
+    headers,
+    body,
+    cache: 'no-store',
+    signal: controller.signal,
+    credentials: 'same-origin'
+  };
+  try {
+    const target = new URL(String(path).replace(/^\/+/, ''), API_BASE).href;
+    const response = await fetch(target, request);
+    const text = await response.text();
+    let data = {};
+    if (text) {
+      try { data = JSON.parse(text); } catch { data = { message: text.trim() }; }
+    }
+    if (!response.ok) {
+      const msg = data.message || data.error || (typeof data === 'string' ? data : '') || (text ? text.slice(0, 180) : '') || `خطای API (${response.status})`;
+      throw new Error(msg);
+    }
+    return data;
+  } catch (err) {
+    if (err.name === 'AbortError') throw new Error('زمان پاسخ سرور تمام شد. دوباره تلاش کنید.');
+    throw new Error(err.message || 'خطای برقراری ارتباط با سرور.');
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+function view(viewName) {
+  if (!VIEW_META[viewName]) return;
+  document.querySelectorAll('.view').forEach((node) => node.classList.toggle('active', node.id === viewName));
+  document.querySelectorAll('[data-view]').forEach((node) => node.classList.toggle('active', node.dataset.view === viewName));
+  const [title, desc] = VIEW_META[viewName];
+  setText('wt', title);
+  setText('ws', desc);
+  document.title = `${title} · MeeLano Trading Intelligence 4.0 Pro`;
+}
+function loadSavedSettings() {
+  const saved = {
+    token: localStorage.getItem(LS_KEYS.token) || '',
+    ai_openai: localStorage.getItem(LS_KEYS.ai_openai) || '',
+    ai_claude: localStorage.getItem(LS_KEYS.ai_claude) || '',
+    ai_gemini: localStorage.getItem(LS_KEYS.ai_gemini) || '',
+    ai_deepseek: localStorage.getItem(LS_KEYS.ai_deepseek) || '',
+    tg_token: localStorage.getItem(LS_KEYS.tg_token) || '',
+    tg_chatid: localStorage.getItem(LS_KEYS.tg_chatid) || '',
+    webhook_url: localStorage.getItem(LS_KEYS.webhook_url) || ''
+  };
+  TOKEN_INPUT_IDS.forEach((id) => { if ($(id)) $(id).value = saved.token; });
+  SETTINGS_MAP.forEach(([id, key]) => { if ($(id)) $(id).value = saved[key] || ''; });
+  setStatusDot('coreDot', saved.token ? 'ok' : 'warn');
+  setStatusDot('authDot', 'warn');
+}
+function persistToken(value) {
+  const t = String(value || '').trim();
+  localStorage.setItem(LS_KEYS.token, t);
+  TOKEN_INPUT_IDS.forEach((id) => { const node = $(id); if (node && node.value !== t) node.value = t; });
+  setStatusDot('coreDot', t ? 'ok' : 'warn');
+}
+function persistSettings() {
+  const values = getSettings();
+  Object.entries(values).forEach(([key, value]) => localStorage.setItem(LS_KEYS[key], value));
+}
+function attachPersistence() {
+  TOKEN_INPUT_IDS.forEach((id) => {
+    const node = $(id);
+    if (node) node.addEventListener('input', (e) => persistToken(e.target.value));
+  });
+  SETTINGS_MAP.forEach(([id, key]) => {
+    const node = $(id);
+    if (node) node.addEventListener('input', () => { localStorage.setItem(LS_KEYS[key], String(node.value || '').trim()); });
+  });
+}
+function renderGateCard(label, weight, gate) {
+  const wrap = el('div', { className: 'metric' });
+  const left = el('span', { text: `${label} · ${weight}` });
+  const right = el('b', { className: decisionClass(gate?.decision || 'WAIT'), text: `${gate?.decision || 'WAIT'} · ${fmt(gate?.score, 0)}` });
+  wrap.append(left, right);
+  return wrap;
+}
+function renderDashboard(results) {
+  const list = normalizeResults(results);
+  const root = normalizeSignal(results) || {};
+  const quantitative = findGate(list, 'quantitative');
+  const technical = findGate(list, 'technical');
+  const sentiment = findGate(list, 'sentiment_macro');
+  const risk = findGate(list, 'risk_management');
+  const gatesBox = $('gatesDash');
+  if (gatesBox) {
+    gatesBox.replaceChildren(
+      renderGateCard('Quantitative', '30%', quantitative),
+      renderGateCard('Technical', '35%', technical),
+      renderGateCard('Sentiment/Macro', '15%', sentiment),
+      renderGateCard('Risk Management', '20%', risk)
+    );
+  }
+  const currentScore = root.final_score ?? root.score ?? quantitative?.score ?? technical?.score ?? sentiment?.score ?? risk?.score;
+  const currentConf = root.confidence ?? root.conf ?? 0;
+  setText('decision', root.decision || 'WAIT', decisionClass(root.decision || 'WAIT'));
+  setText('score', fmt(currentScore, 2), 'info');
+  setText('gate', Array.isArray(root.rejected_by) ? root.rejected_by.join(' · ') : (root.rejected_by || '—'));
+  setText('conf', pct(currentConf, 1));
+  setBar('scoreBar', currentConf);
+  setBar('qBar', quantitative?.score);
+  setBar('tBar', technical?.score);
+  setBar('sBar', sentiment?.score);
+  setBar('rBar', risk?.score);
+  setText('dSymbol', root.symbol || '—');
+  setText('dPrice', fmt(root.price ?? root.last_price ?? root.close ?? quantitative?.metrics?.price, 8));
+  setText('dBtc', sentiment?.metrics?.btc?.status || root.btc_guard?.status || '—');
+  setText('dOb', fmt(quantitative?.metrics?.whale?.order_book_imbalance ?? quantitative?.metrics?.order_book_imbalance, 3));
+  const warnings = Array.isArray(root.warnings) ? root.warnings.filter(Boolean) : [];
+  setText('dReason', warnings.length ? warnings.join(' · ') : (root.reason || 'تحلیل چهارگانه با موفقیت تکمیل شد.'));
+  const plan = planFrom(root);
+  setText('riskRr', fmt(plan.risk?.risk_reward_ratio, 2));
+  setText('rpos', fmt(plan.risk?.suggested_position_size, 2));
+  setText('entry', plan.entry_zone ? `${fmt(plan.entry_zone.min, 8)} — ${fmt(plan.entry_zone.max, 8)}` : '—');
+  setText('stop', fmt(plan.stop_loss, 8));
+  setText('tp1', fmt(plan.take_profits?.[0]?.price, 8));
+  setText('tp2', fmt(plan.take_profits?.[1]?.price, 8));
+  const rr = num(plan.risk?.risk_reward_ratio, 0);
+  const rh = rr ? clamp((rr / 2.5) * 100, 0, 100) : 0;
+  setRing('riskRing', rh, '#dd2dff');
+  setText('riskHealth', `${fmt(rh, 0)}%`);
+  setText('btc', sentiment?.metrics?.btc?.status || root.btc_guard?.status || '—');
+  setText('btcReason', sentiment?.metrics?.btc?.reason || root.btc_guard?.reason || '—');
+  setRing('btcRing', (sentiment?.metrics?.btc?.status === 'NORMAL' ? 75 : sentiment?.metrics?.btc?.status ? 25 : 0), '#36d9ff');
+  setText('btSym', root.symbol || '—');
+  setText('btTf', root.timeframe || '—');
+  setText('qv', fmt(quantitative?.metrics?.volume_ratio));
+  setText('qm', pct(quantitative?.metrics?.momentum_pct));
+  setText('qa', pct(quantitative?.metrics?.atr_pct));
+  setText('qw', fmt(quantitative?.metrics?.whale?.whale_score));
+  setText('te', `${fmt(technical?.metrics?.ema9, 3)} / ${fmt(technical?.metrics?.ema21, 3)} / ${fmt(technical?.metrics?.ema50, 3)}`);
+  setText('tr', fmt(technical?.metrics?.rsi));
+  setText('tm', fmt(technical?.metrics?.macd?.histogram, 5));
+  setText('ti', technical?.metrics?.ichimoku?.above_cloud ? 'Above Cloud' : technical?.metrics?.ichimoku ? 'Below Cloud' : '—');
+  setText('sbtc', sentiment?.metrics?.btc?.status || '—');
+  setText('snews', sentiment?.metrics?.news_status || '—');
+  setText('rr', fmt(risk?.metrics?.risk_reward_ratio ?? plan.risk?.risk_reward_ratio, 2));
+  setText('rp', pct(risk?.metrics?.max_capital_risk_percent ?? plan.risk?.max_capital_risk_percent, 2));
+  setText('pos', fmt(risk?.metrics?.suggested_position_size ?? plan.risk?.suggested_position_size, 2));
+  window.__currentSignal = root;
+}
+function updateConnectionUI({ health = null, auth = null } = {}) {
+  if (health) {
+    setStatusDot('apiDot', health.api);
+    setStatusDot('dbDot', health.db);
+    setText('wb', health.label || 'CORE 4.0 READY');
+  }
+  if (auth !== null) {
+    setStatusDot('authDot', auth ? 'ok' : 'bad');
+  }
+}
+function extractItems(payload) {
+  const root = normalizeSignal(payload) || payload || {};
+  const candidates = [payload?.items, payload?.data?.items, root.items, root.data?.items];
+  for (const candidate of candidates) if (Array.isArray(candidate)) return candidate;
+  if (Array.isArray(root)) return root;
+  return [];
+}
+function safeRowCells(values) {
+  return values.map((value) => {
+    const td = document.createElement('td');
+    td.textContent = value ?? '—';
+    return td;
+  });
+}
+function safeClear(node) {
+  while (node && node.firstChild) node.removeChild(node.firstChild);
+}
+function formatTradePlan(plan) {
+  const entry = plan.entry_zone ? `${fmt(plan.entry_zone.min, 8)} — ${fmt(plan.entry_zone.max, 8)}` : '—';
+  return { entry };
+}
+async function analyze() {
+  const btn = $('analyze');
+  setBusy(true);
+  try {
+    const capitalRaw = String($('capital')?.value || '').trim();
+    const risk = num($('risk')?.value, 1);
+    const capital = capitalRaw === '' ? null : num(capitalRaw, null);
+    if (risk === null || risk <= 0 || risk > 1) throw new Error('ریسک باید بین ۰.۱ تا ۱ درصد باشد.');
+    if (capitalRaw !== '' && (capital === null || capital <= 0)) throw new Error('سرمایه باید عدد معتبر و بزرگ‌تر از صفر باشد.');
+    const response = await api('analyze.php', {
+      method: 'POST',
+      timeout: 60000,
+      body: {
+        symbol: $('symbol')?.value || 'BTCUSDT',
+        timeframe: $('tf')?.value || '1h',
+        capital,
+        risk_pct: risk / 100,
+        news_status: $('news')?.value || 'normal'
+      }
+    });
+    const root = normalizeSignal(response) || response;
+    renderDashboard(root);
+    toast('تحلیل چهارگانه با موفقیت تکمیل شد.', 'ok');
+    view('dashboard');
+    await loadHistory();
+  } catch (err) {
+    toast(err.message || 'خطا در اجرای تحلیل.', 'error');
+  } finally {
+    setBusy(false);
+  }
+}
+async function auth() {
+  setBusy(true);
+  try {
+    const response = await api('auth-check.php');
+    const ok = !!(response.authenticated || response.ok || response.success);
+    updateConnectionUI({ auth: ok });
+    toast(ok ? 'توکن هسته معتبر است.' : 'احراز هویت ناموفق', ok ? 'ok' : 'error');
+    if (ok) await loadHistory();
+  } catch (err) {
+    updateConnectionUI({ auth: false });
+    toast(err.message || 'خطا در بررسی توکن.', 'error');
+  } finally {
+    setBusy(false);
+  }
+}
+async function health() {
+  try {
+    const response = await api('health.php', { auth: false });
+    const apiOk = response.status !== 'down' && response.ok !== false && response.success !== false;
+    const dbOk = response.database !== 'down' && response.db !== 'down' && response.sqlite !== 'down' && response.db_ok !== false;
+    setStatusDot('coreDot', currentToken() ? 'ok' : 'warn');
+    updateConnectionUI({ health: { api: apiOk ? 'ok' : 'bad', db: dbOk ? 'ok' : 'bad', label: apiOk ? 'CORE READY' : 'CORE OFFLINE' } });
+  } catch (err) {
+    setStatusDot('coreDot', currentToken() ? 'ok' : 'warn');
+    updateConnectionUI({ health: { api: 'bad', db: 'bad', label: 'CORE OFFLINE' } });
+  }
+}
+async function loadHistory() {
+  const tbody = $('historyBody');
+  if (!tbody) return;
+  setBusy(true);
+  try {
+    const response = await api('history.php');
+    const items = extractItems(response);
+    safeClear(tbody);
+    if (!items.length) {
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 5;
+      td.textContent = 'رکوردی موجود نیست.';
+      tr.appendChild(td);
+      tbody.appendChild(tr);
+      return;
+    }
+    items.slice(0, 200).forEach((item) => {
+      const tr = document.createElement('tr');
+      const cells = safeRowCells([
+        item?.symbol,
+        item?.timeframe,
+        item?.decision,
+        fmt(item?.final_score ?? item?.composite_score ?? item?.score, 2),
+        item?.created_at || item?.createdAt || item?.timestamp
+      ]);
+      cells.forEach((cell) => tr.appendChild(cell));
+      tbody.appendChild(tr);
+    });
+  } catch (err) {
+    safeClear(tbody);
+    const tr = document.createElement('tr');
+    const td = document.createElement('td');
+    td.colSpan = 5;
+    td.textContent = err.message || 'خطا در بارگذاری تاریخچه.';
+    tr.appendChild(td);
+    tbody.appendChild(tr);
+  } finally {
+    setBusy(false);
+  }
+}
+function validateCapitalRisk(capitalRaw, riskRaw) {
+  const risk = num(riskRaw, null);
+  const capital = capitalRaw === '' ? null : num(capitalRaw, null);
+  if (risk === null || risk <= 0 || risk > 1) throw new Error('ریسک باید بین ۰.۱ تا ۱ درصد باشد.');
+  if (capitalRaw !== '' && (capital === null || capital <= 0)) throw new Error('سرمایه باید عدد معتبر و بزرگ‌تر از صفر باشد.');
+  return { capital, risk };
+}
+async function backtest() {
+  setBusy(true);
+  try {
+    const symbol = $('symbol')?.value || 'BTCUSDT';
+    const timeframe = $('tf')?.value || '1h';
+    const { capital, risk } = validateCapitalRisk(String($('btCapital')?.value || '').trim(), String($('btRisk')?.value || 1).trim());
+    const response = await api('backtest.php', {
+      method: 'POST',
+      timeout: 240000,
+      body: {
+        symbol,
+        timeframe,
+        capital: capital === null ? 1000 : capital,
+        risk_pct: risk / 100,
+        news_status: $('news')?.value || 'normal'
+      }
+    });
+    const root = normalizeSignal(response) || response;
+    const result = isObj(root.result) ? root.result : (isObj(root.data?.result) ? root.data.result : (isObj(root.data) ? root.data : root));
+    setText('win', pct(result?.win_rate, 2));
+    setText('pf', fmt(result?.profit_factor, 2));
+    setText('pnl', pct(result?.profit_pct ?? result?.net_pnl_pct, 2));
+    setText('dd', pct(result?.max_drawdown, 2));
+    setText('btMsg', `Trades ${fmt(result?.total_trades, 0)} · Final Equity ${fmt(result?.final_equity, 2)}`);
+    toast('بک‌تست با موفقیت اجرا شد.', 'ok');
+  } catch (err) {
+    setText('btMsg', err.message || 'خطا در اجرای بک‌تست.', 'bad');
+    toast(err.message || 'خطا در اجرای بک‌تست.', 'error');
+  } finally {
+    setBusy(false);
+  }
+}
+async function scan() {
+  setBusy(true);
+  try {
+    const response = await api('scan.php?quote=USDT', { timeout: 240000 });
+    const items = extractItems(response);
+    const box = $('scanGrid');
+    if (!box) return;
+    safeClear(box);
+    if (!items.length) {
+      box.appendChild(el('div', { className: 'tiny', text: 'داده‌ای برای اسکن موجود نیست.' }));
+      return;
+    }
+    items.slice(0, 12).forEach((item) => {
+      const coin = document.createElement('div');
+      coin.className = 'coin';
+      const head = el('div', { className: 'coinhead' }, [
+        el('b', { text: String(item?.symbol || '—') }),
+        el('span', { className: 'badge', text: String(item?.decision || '—') })
+      ]);
+      const price = el('div', { className: 'price', text: `${fmt(item?.confidence, 1)}%` });
+      const score = el('div', { className: 'tiny', text: `Score · ${fmt(item?.final_score, 1)}` });
+      const bar = el('div', { className: 'mini' }, [el('i')]);
+      const fill = bar.firstChild;
+      fill.style.width = `${clamp(Number(item?.final_score) || 0, 0, 100)}%`;
+      coin.append(head, price, score, bar);
+      coin.addEventListener('click', () => {
+        const symbol = String(item?.symbol || '').trim();
+        if (symbol && $('symbol')) $('symbol').value = symbol;
+        view('analysis');
+      });
+      box.appendChild(coin);
+    });
+    toast('اسکن بازار کامل شد.', 'ok');
+  } catch (err) {
+    const box = $('scanGrid');
+    if (box && !box.firstChild) box.appendChild(el('div', { className: 'tiny', text: err.message || 'خطا در اسکن بازار.' }));
+    toast(err.message || 'خطا در اسکن بازار.', 'error');
+  } finally {
+    setBusy(false);
+  }
+}
+async function sendSignal(channel, message) {
+  const payload = {
+    channel,
+    message,
+    tg_token: String($('tgToken')?.value || '').trim(),
+    tg_chat_id: String($('tgChatId')?.value || '').trim(),
+    webhook_url: String($('webhookUrl')?.value || '').trim()
+  };
+  return api('notify.php', { method: 'POST', body: payload });
+}
+async function sendQuickTg() {
+  const signal = window.__currentSignal;
+  if (!signal) {
+    toast('ابتدا یک تحلیل اجرا کنید تا نتیجه‌ای برای ارسال وجود داشته باشد.', 'error');
+    return;
+  }
+  setBusy(true);
+  try {
+    const channel = String($('webhookUrl')?.value || '').trim() ? 'all' : 'telegram';
+    await sendSignal(channel, signalText(signal));
+    toast('سیگنال فعلی با موفقیت ارسال شد.', 'ok');
+  } catch (err) {
+    toast(err.message || 'خطا در ارسال سیگنال.', 'error');
+  } finally {
+    setBusy(false);
+  }
+}
+async function testAlerts() {
+  setBusy(true);
+  try {
+    const response = await sendSignal('all', '<div dir="rtl">تست اعلان MeeLano</div>');
+    const ok = response.ok !== false && response.success !== false;
+    toast(ok ? 'تست اعلان با موفقیت ارسال شد.' : (response.message || 'تست اعلان ناموفق بود.'), ok ? 'ok' : 'error');
+  } catch (err) {
+    toast(err.message || 'خطا در تست اعلان.', 'error');
+  } finally {
+    setBusy(false);
+  }
+}
+function bindEvents() {
+  document.querySelectorAll('[data-view]').forEach((node) => {
+    node.addEventListener('click', () => {
+      view(node.dataset.view);
+      if (node.dataset.view === 'history') loadHistory();
+    });
+  });
+  const bindings = {
+    analyze,
+    auth,
+    refresh: loadHistory,
+    bt: backtest,
+    scan,
+    saveTokenBtn: () => { persistToken($('setTokenInput')?.value || $('token')?.value || ''); toast('توکن هسته با موفقیت ذخیره شد.', 'ok'); },
+    saveAiKeys: () => { persistSettings(); toast('کلیدهای هوش مصنوعی ذخیره شدند.', 'ok'); },
+    saveAlerts: () => { persistSettings(); toast('تنظیمات وب‌هوک و تلگرام ذخیره شدند.', 'ok'); },
+    testAlerts,
+    sendQuickTg
+  };
+  Object.entries(bindings).forEach(([id, fn]) => { const node = $(id); if (node) node.addEventListener('click', fn); });
+  ['symbol','tf','news','capital','risk','btCapital','btRisk'].forEach((id) => {
+    const node = $(id);
+    if (node) node.addEventListener('change', () => {
+      if (id === 'symbol' || id === 'tf') {
+        if ($('btSym')) setText('btSym', $('symbol')?.value || '—');
+        if ($('btTf')) setText('btTf', $('tf')?.value || '—');
+      }
+    });
+  });
+}
+function init() {
+  loadSavedSettings();
+  attachPersistence();
+  bindEvents();
+  view('dashboard');
+  health();
+  loadHistory();
+}
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', init);
+} else {
+  init();
+}
+</script>
+</body>
+</html>

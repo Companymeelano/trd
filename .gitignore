@@ -32,7 +32,17 @@ android/build/
 android/app/build/
 android/local.properties
 android/dist/
-# APK میلانو عمداً در مخزن می‌ماند (تحویل رسمی نسخهٔ اندروید)
+android-native/.gradle/
+android-native/build/
+android-native/app/build/
+android-native/local.properties
+# APK میلانو (v5.8) عمداً در مخزن می‌ماند (تحویل رسمی نسخهٔ اندروید)
 # *.apk
 *.aab
 *.keystore
+
+# ─── نسخهٔ استخراج‌شدهٔ بستهٔ v4 و کپی‌های بررسی ────────────────────────────
+/_review/
+/_v58/
+/dist/
+/deliver/

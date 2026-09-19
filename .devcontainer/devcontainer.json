@@ -1,0 +1,21 @@
+{
+  "name": "Meelano Android Dev",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/java:1": {
+      "version": "17",
+      "installGradle": true,
+      "gradleVersion": "8.7"
+    }
+  },
+  "customizations": {
+    "vscode": {
+      "extensions": ["vscjava.vscode-gradle", "redhat.java"]
+    }
+  },
+  "postCreateCommand": ".devcontainer/setup-android.sh",
+  "remoteEnv": {
+    "ANDROID_HOME": "/home/vscode/android-sdk",
+    "ANDROID_SDK_ROOT": "/home/vscode/android-sdk"
+  }
+}

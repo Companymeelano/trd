@@ -32,14 +32,23 @@ function m_input(): array
     return $_POST ?: [];
 }
 
-/** همه نقاط پایان به ورود مدیر و CSRF نیاز دارند (مگر health). */
+/**
+ * همه نقاط پایان به ورود مدیر و CSRF نیاز دارند (مگر health).
+ *
+ * نکتهٔ امنیتی: حتی اگر نقطهٔ پایان `needCsrf=false` اعلام کند، برای روش‌های
+ * ناامن (POST/PUT/PATCH/DELETE) توکن CSRF الزامی است؛ چون احراز هویت کوکی-محور
+ * است و بدون آن، حملات cross-site روی عملیات حساس (کیف کاغذی، کلیدهای صرافی،
+ * ارسال اعلان‌ها) ممکن می‌شد. رابط وب توکن را در سرصفحهٔ X-CSRF-Token می‌فرستد.
+ */
 function m_guard(bool $needCsrf = true, string $rateBucket = 'api'): void
 {
     if ((bool)Config::get('app.require_admin', true) && !Security::isLoggedIn()) {
         m_json(['ok' => false, 'error' => 'برای این عملیات ابتدا وارد بخش تنظیمات شوید.'], 401);
     }
     Security::requireRateLimit($rateBucket);
-    if ($needCsrf) {
+    $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+    $unsafe = !in_array($method, ['GET', 'HEAD', 'OPTIONS'], true);
+    if ($needCsrf || $unsafe) {
         Security::requireCsrf();
     }
 }

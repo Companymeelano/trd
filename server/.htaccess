@@ -1,0 +1,17 @@
+Options -Indexes
+
+<FilesMatch "^\.env(?:\..*)?$">
+  Require all denied
+</FilesMatch>
+<FilesMatch "^(composer\.(json|lock)|package(-lock)?\.json|\.gitignore|README(?:\.md)?|.*\.(sql|sqlite|sqlite3|bak|log))$">
+  Require all denied
+</FilesMatch>
+
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "no-referrer"
+  Header always set X-Frame-Options "SAMEORIGIN"
+</IfModule>
+
+RewriteEngine On
+RewriteRule ^(?:data|storage|src)(?:/|$) - [F,L]

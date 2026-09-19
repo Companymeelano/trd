@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">میلانو تریدر</string>
+    <string name="brand_title">MeeLano Trading Intelligence 4.0 Pro</string>
+    <string name="brand_subtitle">سیستم فرماندهی چندلایه · تحلیل تکنیکال، فاندامنتال و ریسک</string>
+    <string name="footer_note">ابزار تصمیم‌یار است؛ تضمین سود یا پیش‌بینی قطعی بازار ارائه نمی‌کند.</string>
+
+    <!-- Status chips -->
+    <string name="chip_core">هسته</string>
+    <string name="chip_auth">احراز هویت</string>
+    <string name="chip_market_api">Market API</string>
+    <string name="chip_sqlite">SQLite</string>
+
+    <!-- Tabs -->
+    <string name="tab_dashboard">داشبورد</string>
+    <string name="tab_analysis">تحلیل ۴گانه</string>
+    <string name="tab_market">رادار بازار</string>
+    <string name="tab_journal">ژورنال و بک‌تست</string>
+    <string name="tab_settings">تنظیمات</string>
+
+    <!-- View headers -->
+    <string name="dashboard_title">داشبورد فرماندهی</string>
+    <string name="dashboard_subtitle">وضعیت زنده، تصمیم نهایی و برنامه معامله</string>
+    <string name="analysis_title">اتاق تحلیل ۴گانه</string>
+    <string name="analysis_subtitle">بررسی Quantitative، Technical، Sentiment و Risk</string>
+    <string name="market_title">رادار بازار و اسکنر</string>
+    <string name="market_subtitle">Bitcoin Guard و رتبه‌بندی زنده نمادها</string>
+    <string name="journal_title">ژورنال و تست استراتژی</string>
+    <string name="journal_subtitle">آرشیو سیگنال‌ها و ارزیابی تاریخی موتور</string>
+    <string name="settings_title">مرکز کنترل و تنظیمات</string>
+    <string name="settings_subtitle">آدرس سرور، توکن امنیتی و کانال‌های اعلان</string>
+
+    <!-- Dashboard -->
+    <string name="card_decision">تصمیم نهایی</string>
+    <string name="label_decision">تصمیم</string>
+    <string name="label_score">امتیاز نهایی</string>
+    <string name="label_confidence">اطمینان</string>
+    <string name="label_rejected_by">رد شده توسط</string>
+    <string name="label_symbol">نماد</string>
+    <string name="label_timeframe">تایم‌فریم</string>
+    <string name="label_price">قیمت فعلی</string>
+    <string name="label_btc_guard">Bitcoin Guard</string>
+    <string name="label_order_book">عدم تعادل دفتر سفارش</string>
+    <string name="card_gates">گیت‌های چهارگانه</string>
+    <string name="card_trade_plan">برنامه معامله</string>
+    <string name="card_risk_monitor">مانیتور ریسک و پوزیشن</string>
+    <string name="label_entry_zone">محدوده ورود</string>
+    <string name="label_stop_loss">حد ضرر</string>
+    <string name="label_tp1">هدف اول (TP1)</string>
+    <string name="label_tp2">هدف دوم (TP2)</string>
+    <string name="label_rr">نسبت ریسک به ریوارد</string>
+    <string name="label_position_size">حجم پیشنهادی</string>
+    <string name="label_position_usd">ارزش پوزیشن (USDT)</string>
+    <string name="label_risk_amount">ریسک نقدی (USDT)</string>
+    <string name="label_max_risk_percent">ریسک هر معامله</string>
+    <string name="label_risk_health">سلامت ریسک</string>
+    <string name="card_warnings">هشدارها و دلایل</string>
+    <string name="card_data_quality">کیفیت داده</string>
+    <string name="label_provider">منبع داده</string>
+    <string name="label_stale">داده قدیمی (Stale)</string>
+    <string name="label_candles">تعداد کندل</string>
+    <string name="label_request_time">زمان تحلیل</string>
+    <string name="empty_no_signal">هنوز تحلیلی اجرا نشده است. از تب «تحلیل ۴گانه» یک نماد را تحلیل کنید یا در تنظیمات سیگنال نمونه را بارگذاری کنید.</string>
+    <string name="yes">بله</string>
+    <string name="no">خیر</string>
+
+    <!-- Analysis -->
+    <string name="field_symbol">نماد</string>
+    <string name="field_timeframe">تایم‌فریم</string>
+    <string name="field_capital">سرمایه (USDT) — اختیاری</string>
+    <string name="field_risk">ریسک هر معامله (حداکثر ۱٪)</string>
+    <string name="field_news">وضعیت خبری</string>
+    <string name="news_normal">Normal</string>
+    <string name="news_cpi">CPI / High Impact</string>
+    <string name="action_analyze">اجرای تحلیل کامل ۴گانه</string>
+    <string name="action_check_token">بررسی توکن</string>
+    <string name="gate_quantitative">Quantitative</string>
+    <string name="gate_technical">Technical</string>
+    <string name="gate_sentiment">Sentiment / Macro</string>
+    <string name="gate_risk">Risk Management</string>
+    <string name="weight_quantitative">وزن ۳۰٪</string>
+    <string name="weight_technical">وزن ۳۵٪</string>
+    <string name="weight_sentiment">وزن ۱۵٪</string>
+    <string name="weight_risk">وزن ۲۰٪</string>
+    <string name="label_reasons">دلایل گیت</string>
+    <string name="label_metrics">سنجه‌ها</string>
+    <string name="no_reasons">دلیلی ثبت نشده است.</string>
+    <string name="err_risk_range">ریسک باید بین ۰.۱ تا ۱ درصد باشد.</string>
+    <string name="err_capital_invalid">سرمایه باید عدد معتبر و بزرگ‌تر از صفر باشد.</string>
+    <string name="err_symbol_invalid">نماد نامعتبر است؛ فقط حروف بزرگ انگلیسی و عدد (۲ تا ۲۴ کاراکتر).</string>
+
+    <!-- Market -->
+    <string name="action_scan">اسکن بازار</string>
+    <string name="label_quote">ارز پایه</string>
+    <string name="card_ranking">رتبه‌بندی نمادها</string>
+    <string name="empty_scan">داده‌ای برای اسکن موجود نیست.</string>
+    <string name="scan_note">اسکن ۱۲ نماد اصلی روی تایم‌فریم ۱ ساعته اجرا می‌شود و ممکن است تا یک دقیقه طول بکشد.</string>
+    <string name="label_btc_status">وضعیت</string>
+    <string name="label_btc_reason">دلیل</string>
+    <string name="scan_tap_hint">برای تحلیل هر نماد روی آن لمس کنید.</string>
+
+    <!-- Journal + backtest -->
+    <string name="section_history">تاریخچه سیگنال</string>
+    <string name="section_backtest">بک‌تست استراتژی</string>
+    <string name="action_load_history">به‌روزرسانی تاریخچه</string>
+    <string name="action_run_backtest">اجرای بک‌تست</string>
+    <string name="empty_history">رکوردی موجود نیست.</string>
+    <string name="label_win_rate">نرخ برد</string>
+    <string name="label_profit_factor">Profit Factor</string>
+    <string name="label_profit_pct">سود خالص</string>
+    <string name="label_max_drawdown">بیشترین افت سرمایه</string>
+    <string name="label_total_trades">تعداد معاملات</string>
+    <string name="label_final_equity">سرمایه نهایی</string>
+    <string name="label_engine">موتور</string>
+    <string name="backtest_note">بک‌تست روی ۸۰۰ کندل اخیر با موتور چهارگانه اجرا می‌شود؛ کارمزد و اسلیپیج مدل نمی‌شود.</string>
+    <string name="empty_backtest">هنوز بک‌تستی اجرا نشده است.</string>
+
+    <!-- Settings -->
+    <string name="section_connection">اتصال به هسته</string>
+    <string name="section_notifications">کانال‌های اعلان</string>
+    <string name="section_about">درباره</string>
+    <string name="field_base_url">آدرس سرور (مثال: https://your-domain.com/trader)</string>
+    <string name="field_api_token">توکن API هسته (X-API-Token)</string>
+    <string name="field_tg_token">توکن ربات تلگرام</string>
+    <string name="field_tg_chat">Chat ID تلگرام</string>
+    <string name="field_webhook">آدرس وب‌هوک (واتس‌اپ / سرور اختصاصی)</string>
+    <string name="action_save">ذخیره تنظیمات</string>
+    <string name="action_health">بررسی سلامت هسته</string>
+    <string name="action_test_notifications">تست اعلان</string>
+    <string name="action_send_signal">ارسال سیگنال فعلی</string>
+    <string name="action_demo">بارگذاری سیگنال نمونه</string>
+    <string name="label_api_status">API</string>
+    <string name="label_db_status">پایگاه داده</string>
+    <string name="label_version">نسخه هسته</string>
+    <string name="label_php">PHP</string>
+    <string name="label_config">پیکربندی</string>
+    <string name="label_pdo_sqlite">pdo_sqlite</string>
+    <string name="label_server_time">زمان سرور</string>
+    <string name="warn_http">اتصال بدون HTTPS رمزنگاری نمی‌شود؛ توصیه می‌شود آدرس سرور با https:// شروع شود.</string>
+    <string name="warn_token_local">توکن فقط در حافظه خصوصی همین اپلیکیشن نگهداری می‌شود و در پشتیبان‌گیری ابری قرار نمی‌گیرد.</string>
+    <string name="warn_disabled_notify">برای ارسال اعلان، توکن ربات و Chat ID تلگرام (یا آدرس وب‌هوک) را وارد کنید.</string>
+    <string name="state_unknown">بررسی نشده</string>
+    <string name="state_ok">سالم</string>
+    <string name="state_bad">خطا</string>
+
+    <!-- Messages -->
+    <string name="msg_settings_saved">تنظیمات با موفقیت ذخیره شد.</string>
+    <string name="msg_token_valid">توکن هسته معتبر است.</string>
+    <string name="msg_token_invalid">احراز هویت ناموفق بود؛ توکن را بررسی کنید.</string>
+    <string name="msg_demo_loaded">سیگنال نمونه بارگذاری شد (حالت نمایشی).</string>
+    <string name="msg_analysis_done">تحلیل چهارگانه با موفقیت تکمیل شد.</string>
+    <string name="msg_scan_done">اسکن بازار کامل شد.</string>
+    <string name="msg_backtest_done">بک‌تست با موفقیت اجرا شد.</string>
+    <string name="msg_history_done">تاریخچه به‌روزرسانی شد.</string>
+    <string name="msg_signal_sent">سیگنال با موفقیت ارسال شد.</string>
+    <string name="msg_no_signal_to_send">ابتدا یک تحلیل اجرا کنید تا نتیجه‌ای برای ارسال وجود داشته باشد.</string>
+    <string name="msg_missing_config">آدرس سرور و توکن API را در بخش تنظیمات وارد کنید.</string>
+    <string name="msg_missing_token">توکن API هسته را در بخش تنظیمات وارد کنید.</string>
+    <string name="err_timeout">زمان پاسخ سرور تمام شد. دوباره تلاش کنید.</string>
+    <string name="err_network">خطا در برقراری ارتباط با سرور.</string>
+    <string name="err_rate_limit">محدودیت نرخ درخواست فعال شد؛ چند لحظه صبر کنید.</string>
+    <string name="err_server">سرور هسته خطا داد.</string>
+    <string name="err_unauthorized">توکن API نامعتبر است.</string>
+
+    <string name="cd_refresh">به‌روزرسانی</string>
+    <string name="cd_send">ارسال</string>
+
+</resources>

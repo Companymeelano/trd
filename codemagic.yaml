@@ -1,0 +1,38 @@
+# Codemagic — ساخت ابری APK بدون GitHub Actions و بدون نیاز به کارت بانکی
+# (ثبت‌نام رایگان با حساب GitHub در codemagic.io، انتخاب این مخزن، زدن Start Build)
+workflows:
+  meelano-native:
+    name: "Meelano Native (Compose v4)"
+    max_build_duration: 60
+    instance_type: linux_x2
+    working_directory: android-native
+    environment:
+      java: 17
+      android_signing: []
+    scripts:
+      - name: ensure sdk packages
+        script: sdkmanager "platforms;android-35" "build-tools;35.0.0" >/dev/null || true
+      - name: unit tests
+        script: ./gradlew testDebugUnitTest --no-daemon
+      - name: build debug apk
+        script: ./gradlew assembleDebug --no-daemon
+      - name: build release apk (unsigned)
+        script: ./gradlew assembleRelease --no-daemon
+    artifacts:
+      - android-native/app/build/outputs/apk/**/*.apk
+      - android-native/app/build/reports/tests/**/index.html
+
+  meelano-webview:
+    name: "Meelano WebView (v5.8)"
+    max_build_duration: 60
+    instance_type: linux_x2
+    working_directory: android
+    environment:
+      java: 17
+    scripts:
+      - name: ensure sdk packages
+        script: sdkmanager "platforms;android-34" "build-tools;34.0.0" >/dev/null || true
+      - name: build debug apk
+        script: ./gradlew assembleDebug --no-daemon
+    artifacts:
+      - android/app/build/outputs/apk/**/*.apk

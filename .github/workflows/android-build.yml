@@ -1,0 +1,124 @@
+name: Android Build
+
+on:
+  push:
+    branches:
+      - "arena/01a0a94d-trd"
+      - "main"
+    paths:
+      - "android-native/**"
+      - "server/**"
+      - "tests/**"
+      - ".github/workflows/android-build.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  build:
+    name: Build APKs and run unit tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Prepare Android SDK components
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ -x "$SDKMANAGER" ]; then
+            yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+            "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools" || true
+          else
+            echo "sdkmanager not found; AGP will download what it needs."
+          fi
+
+      - name: Repo-level test suite (web JS, API contract, Android static checks)
+        run: |
+          node tests/web-console-pure.test.mjs
+          python3 tests/contract_fixtures_test.py
+          python3 tests/android_static_check.py
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Unit tests + debug APK
+        working-directory: android-native
+        run: |
+          set -o pipefail
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace testDebugUnitTest assembleDebug 2>&1 | tee build-log.txt
+
+      - name: Release APK (signed with debug key when no keystore secret is set)
+        working-directory: android-native
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon assembleRelease 2>&1 | tee -a build-log.txt
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: meelano-trader-debug-apk
+          path: android-native/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: meelano-trader-release-apk
+          path: android-native/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+
+      - name: Upload unit test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-report
+          path: android-native/app/build/reports/tests/testDebugUnitTest
+          if-no-files-found: ignore
+
+      # The development sandbox cannot reach the Actions log/artifact hosts, so
+      # on failure the tail of the Gradle console is mirrored into PR #1 as a
+      # comment, and on success the APKs are mirrored into deliver/apk.
+      - name: Report failure log to PR comment (best effort)
+        if: failure()
+        continue-on-error: true
+        run: |
+          {
+            echo "## Android CI — tail of Gradle console (run ${GITHUB_RUN_ID})"
+            echo '```text'
+            tail -c 50000 android-native/build-log.txt 2>/dev/null || echo "(no log captured)"
+            echo '```'
+          } > /tmp/failure-comment.md
+          curl -sS -X POST \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/1/comments" \
+            --data-binary @/tmp/failure-comment.md || true
+
+      - name: Mirror APKs into deliver/apk (best effort)
+        if: success()
+        continue-on-error: true
+        run: |
+          cd "${GITHUB_WORKSPACE}"
+          git config user.name "meelano-ci"
+          git config user.email "ci@users.noreply.github.com"
+          mkdir -p deliver/apk
+          cp android-native/app/build/outputs/apk/debug/app-debug.apk deliver/apk/meelano-trader-debug.apk
+          cp android-native/app/build/outputs/apk/release/app-release.apk deliver/apk/meelano-trader-release.apk
+          sha256sum deliver/apk/*.apk | tee deliver/apk/SHA256SUMS.txt
+          git add -f deliver/apk
+          git commit -m "ci: publish built APKs for delivery [skip ci]" || exit 0
+          git push origin "HEAD:${GITHUB_REF_NAME}" || exit 0
