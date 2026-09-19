@@ -70,7 +70,7 @@ api5/
 خطاها: `401` توکن نامعتبر · `429` rate limit · `400` پارامتر نامعتبر · `5xx` خطای سرور/بالادست.
 
 ## ۵) نسخه اندروید
-پروژه کامل در `android/` (Kotlin + Jetpack Compose + OkHttp) ساخته شد؛ جزئیات و
-راهنمای ساخت در `android/README.md`. بیلد واقعی APK از طریق GitHub Actions
+پروژه کامل در `android-native/` (Kotlin + Jetpack Compose + OkHttp) ساخته شد؛ جزئیات و
+راهنمای ساخت در `android-native/README.md`. بیلد واقعی APK از طریق GitHub Actions
 (`.github/workflows/android-build.yml`) انجام می‌شود چون محیط توسعه محلی این
 جلسه فاقد JDK/Android SDK است.

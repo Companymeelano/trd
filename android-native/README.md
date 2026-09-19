@@ -35,7 +35,7 @@ Jetpack Compose و کاملاً راست‌چین (مانند کنسول وب) �
 
 ## ساخت محلی
 ```bash
-cd android
+cd android-native
 ./gradlew testDebugUnitTest   # تست‌های واحد
 ./gradlew assembleDebug       # APK قابل نصب: app/build/outputs/apk/debug/app-debug.apk
 ./gradlew assembleRelease     # APK ریلیز (با کلید امضای دلخواه یا کلید debug)

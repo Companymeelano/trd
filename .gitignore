@@ -1,5 +1,6 @@
 # Extracted copy of the distributable zip — review/build scratch only.
 /_review/
+/_v58/
 
 # Local build output / downloaded artifacts must stay out of git.
 /dist/

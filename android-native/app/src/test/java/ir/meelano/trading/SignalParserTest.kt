@@ -123,6 +123,73 @@ class SignalParserTest {
     }
 
     @Test
+    fun toleratesLegacyAnalyzePayloadWithoutTradePlan() {
+        // Real rows persisted by pre-v4 builds store the plan flat at the root
+        // and omit data_quality/price; the parser must still render them.
+        val legacy = JSONObject(
+            """
+            {
+              "status": "success",
+              "symbol": "DOGEUSDT",
+              "timeframe": "1h",
+              "decision": "REJECT",
+              "confidence": 35.2,
+              "final_score": 35.2,
+              "rejected_by": "quantitative",
+              "warnings": [],
+              "entry_zone": { "min": 0.9, "max": 0.91 },
+              "stop_loss": 0.88,
+              "take_profits": [ { "price": 0.95, "rr": 2.5 } ],
+              "risk": { "risk_reward_ratio": 2.5 },
+              "results": {
+                "quantitative": {
+                  "gate": "quantitative",
+                  "decision": "REJECT",
+                  "score": 35.2,
+                  "reasons": [ "Volume is below its 20-period average." ],
+                  "metrics": { "price": 0.906, "volume_ratio": 0.7 },
+                  "trade_plan": null
+                }
+              }
+            }
+            """.trimIndent()
+        )
+        val signal = SignalParser.signal(legacy)
+        assertEquals("DOGEUSDT", signal.symbol)
+        assertEquals("REJECT", signal.decision)
+        assertEquals(1, signal.gates.size)
+        assertEquals(0.906, signal.price!!, 0.0001)
+        assertEquals(0.88, signal.plan.stopLoss!!, 0.0001)
+        assertEquals(0.9, signal.plan.entryMin!!, 0.0001)
+        assertEquals(1, signal.plan.takeProfits.size)
+        assertEquals(null, signal.provider)
+        assertEquals(0, signal.candles)
+    }
+
+    @Test
+    fun backtestWithoutEngineKeyStillParses() {
+        val payload = JSONObject(
+            """
+            {
+              "status": "success",
+              "result": {
+                "total_trades": 12,
+                "win_rate": 41.67,
+                "profit_factor": 0.86,
+                "profit_pct": -3.2,
+                "max_drawdown": 6.1,
+                "final_equity": 968.0
+              }
+            }
+            """.trimIndent()
+        )
+        val result = SignalParser.backtest(payload)
+        assertEquals(12, result.totalTrades)
+        assertEquals(null, result.engine)
+        assertEquals(-3.2, result.profitPct, 0.001)
+    }
+
+    @Test
     fun healthAndAuthParsing() {
         val health = SignalParser.health(
             JSONObject(
