@@ -1,3 +1,6 @@
+> **توجه:** این سند بررسی تبار v4.0-pro (هستهٔ `server/` و اپ نیتیو `android-native/`) است.
+> گزارش کامل و نهایی همهٔ پروژه (v5.8.1 + v4 + تست‌ها + اصلاحات): **`docs/REPORT_fa.md`**
+
 # بررسی فنی پروژه — MeeLano Trading Intelligence v4.0 Pro
 
 تاریخ بررسی: ۲۰۲۶-۰۹-۱۶ · شاخه: `arena/01a0a94d-trd` · منبع: `meelano-trading-intelligence-v4.0-pro.zip`
