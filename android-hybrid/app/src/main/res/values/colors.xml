@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark glassmorphism palette shared with the web console (index.php). -->
+    <color name="app_background">#FF05070F</color>
+    <color name="ic_launcher_background">#FF0B1020</color>
+</resources>

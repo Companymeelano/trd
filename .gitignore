@@ -36,6 +36,11 @@ android-native/.gradle/
 android-native/build/
 android-native/app/build/
 android-native/local.properties
+android-hybrid/.gradle/
+android-hybrid/build/
+android-hybrid/app/build/
+android-hybrid/local.properties
+android-hybrid/build-log.txt
 # APK میلانو (v5.8) عمداً در مخزن می‌ماند (تحویل رسمی نسخهٔ اندروید)
 # *.apk
 *.aab

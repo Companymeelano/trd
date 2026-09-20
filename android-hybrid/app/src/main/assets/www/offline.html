@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#05070f">
+<title>میلانو تریدر — کنسول آفلاین</title>
+<!--
+  کنسول آفلاینِ اپ واحد هیبریدی.
+  وقتی هاست در دسترس نیست (یا اینترنت قطع است) همین صفحه از assets لود می‌شود
+  تا اپ هرگز بن‌بست نشود؛ پل بومی (hybrid-bridge.js) هم در همین صفحه تزریق
+  می‌شود، بنابراین به‌محض بازگشت اتصال، همان درخواست‌ها به هستهٔ PHP می‌رسند.
+  Milad Yaghoobi — Meelano Studio Design
+-->
+<style>
+:root{
+  --gold-1:#ffd76a; --gold-2:#f5b731;
+  --indigo-1:#8b9dff; --indigo-2:#5b6cff;
+  --emerald:#34d399; --rose:#fb7185;
+  --bg-0:#05070f; --bg-1:#0b1020;
+  --text:#e8ecf8; --text-dim:#9aa4c0;
+  --line:rgba(255,255,255,.09);
+  --font-fa:"Vazirmatn","Segoe UI",Tahoma,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:var(--font-fa);color:var(--text);min-height:100vh;padding:18px 14px 40px;
+  background:
+    radial-gradient(60% 40% at 85% -5%, rgba(91,108,255,.14), transparent 60%),
+    radial-gradient(50% 35% at 10% 0%, rgba(245,183,49,.1), transparent 55%),
+    linear-gradient(180deg,var(--bg-1) 0%,var(--bg-0) 100%);
+}
+.shell{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+.topbar{display:flex;align-items:center;gap:12px}
+.gem{
+  width:46px;height:46px;border-radius:15px;display:grid;place-items:center;font-weight:900;color:#231803;font-size:18px;
+  background:linear-gradient(180deg,#ffe9a8 0%,var(--gold-1) 30%,var(--gold-2) 62%,#b57e12 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 12px 24px -10px rgba(245,183,49,.55);
+}
+h1{font-size:17px;font-weight:900}
+h1 b{color:var(--gold-1)}
+.sub{font-size:11px;color:var(--text-dim);margin-top:3px}
+.card{
+  border:1px solid var(--line);border-radius:16px;padding:14px;background:rgba(255,255,255,.04);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 18px 34px -22px rgba(0,0,0,.9);
+}
+.card h2{font-size:13px;font-weight:800;margin-bottom:10px;color:var(--gold-1)}
+.row{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px dashed rgba(255,255,255,.07);font-size:12px}
+.row:last-child{border-bottom:0}
+.row span:first-child{color:var(--text-dim)}
+.row span:last-child{font-weight:700;text-align:left;direction:ltr}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.badge{
+  display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:5px 10px;border-radius:999px;
+  border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--text-dim)
+}
+.badge--ok{color:#6ee7b7;border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.1)}
+.badge--bad{color:#fda4af;border-color:rgba(251,113,133,.4);background:rgba(251,113,133,.1)}
+.badge--gold{color:var(--gold-1);border-color:rgba(245,183,49,.4);background:rgba(245,183,49,.1)}
+button{
+  font-family:var(--font-fa);font-size:13px;font-weight:800;cursor:pointer;padding:12px 16px;border-radius:14px;border:1px solid var(--line);
+  color:#231803;background:linear-gradient(180deg,#ffe9a8 0%,var(--gold-1) 34%,var(--gold-2) 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.7),0 3px 0 #6d4a0a,0 14px 26px -14px rgba(245,183,49,.7);width:100%
+}
+button:active{transform:translateY(2px)}
+button[disabled]{opacity:.55;cursor:default}
+#log{font-size:11px;color:var(--text-dim);direction:ltr;text-align:left;line-height:1.7;white-space:pre-wrap;max-height:180px;overflow:auto}
+.note{font-size:11px;color:var(--text-dim);line-height:1.9}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="topbar">
+    <div class="gem">ML</div>
+    <div>
+      <h1>میلانو <b>تریدر</b> — کنسول آفلاین</h1>
+      <div class="sub">اپ واحد هیبریدی · پوستهٔ بومی + کنسول وب در یک APK</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>وضعیت پوسته</h2>
+    <div class="chips" id="chips"><span class="badge">در حال اتصال به پوسته…</span></div>
+  </div>
+
+  <div class="card">
+    <h2>پل بومی</h2>
+    <div class="row"><span>حالت سطح</span><span id="mode">—</span></div>
+    <div class="row"><span>هاست</span><span id="host">—</span></div>
+    <div class="row"><span>نسخهٔ اپ</span><span id="app">—</span></div>
+    <div class="row"><span>توکن API</span><span id="token">—</span></div>
+    <div class="row"><span>نماد / تایم‌فریم</span><span id="symbol">—</span></div>
+  </div>
+
+  <div class="card">
+    <h2>سلامت هسته</h2>
+    <button id="probe" type="button">بررسی سلامت هسته (api/health.php)</button>
+    <p class="note" style="margin-top:10px">
+      این درخواست از طریق پوستهٔ بومی ارسال می‌شود؛ توکن API هرگز وارد صفحهٔ وب نمی‌شود.
+      اگر هاست در دسترس نباشد، همین صفحه به‌عنوان کنسول آفلاین باقی می‌ماند.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>لاگ پل</h2>
+    <div id="log">—</div>
+  </div>
+
+</div>
+
+<script src="hybrid-bridge.js"></script>
+<script>
+(function () {
+  'use strict';
+  var $ = function (id) { return document.getElementById(id); };
+  var bridge = window.MeelanoHybrid;
+  var logBox = $('log');
+
+  function log(line) {
+    var stamp = new Date().toLocaleTimeString('en-GB');
+    logBox.textContent = '[' + stamp + '] ' + line + '\n' + logBox.textContent;
+  }
+
+  function chip(text, kind) {
+    var el = document.createElement('span');
+    el.className = 'badge' + (kind ? ' badge--' + kind : '');
+    el.textContent = text;
+    return el;
+  }
+
+  function renderBootstrap(info) {
+    var chips = $('chips');
+    chips.textContent = '';
+    if (!info) {
+      chips.appendChild(chip('پوستهٔ بومی یافت نشد', 'bad'));
+      $('mode').textContent = 'browser';
+      $('host').textContent = '—';
+      $('app').textContent = '—';
+      $('token').textContent = '—';
+      $('symbol').textContent = '—';
+      log('bootstrap: no native bridge (page opened outside the app)');
+      return;
+    }
+    chips.appendChild(chip('پل بومی فعال', 'ok'));
+    chips.appendChild(chip('bridge v' + info.bridge, 'indigo'));
+    if (info.token) chips.appendChild(chip('توکن ثبت شده', 'gold')); else chips.appendChild(chip('بدون توکن', 'bad'));
+    $('mode').textContent = String(info.mode || '—');
+    $('host').textContent = String(info.host || '—');
+    $('app').textContent = String(info.app || '—');
+    $('token').textContent = info.token ? 'ثبت شده' : 'وارد نشده';
+    $('symbol').textContent = String(info.symbol || '—') + ' / ' + String(info.timeframe || '—');
+    log('bootstrap: mode=' + info.mode + ' host=' + (info.host || '(none)'));
+  }
+
+  if (!bridge) {
+    renderBootstrap(null);
+    $('probe').disabled = true;
+    return;
+  }
+
+  renderBootstrap(bridge.bootstrap());
+
+  // The shell dispatches `meelano-ready` right after injecting the bridge — the
+  // same event the remote console listens for — so both surfaces share one path.
+  document.addEventListener('meelano-ready', function (event) {
+    if (event && event.detail) {
+      renderBootstrap(event.detail);
+      log('meelano-ready received from the shell');
+    }
+  });
+
+  $('probe').addEventListener('click', function () {
+    var btn = $('probe');
+    btn.disabled = true;
+    btn.textContent = 'در حال بررسی…';
+    bridge.request('health', {}).then(function (env) {
+      btn.disabled = false;
+      btn.textContent = 'بررسی سلامت هسته (api/health.php)';
+      if (env && env.ok) {
+        log('health: ok');
+        bridge.postSignal({ source: 'offline-console', action: 'health', payload: env.data });
+      } else {
+        log('health: ' + ((env && env.error) || 'unknown error'));
+      }
+    });
+  });
+}());
+</script>
+</body>
+</html>

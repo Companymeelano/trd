@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">میلانو هیبریدی</string>
+    <string name="brand_title">MeeLano Hybrid 6.0</string>
+    <string name="brand_subtitle">اپ واحد هیبریدی · پوستهٔ بومی + کنسول وب در یک APK</string>
+    <string name="footer_note">ابزار تصمیم‌یار است؛ تضمین سود یا پیش‌بینی قطعی بازار ارائه نمی‌کند.</string>
+
+    <!-- Tabs -->
+    <string name="tab_status">وضعیت</string>
+    <string name="tab_console">کنسول</string>
+    <string name="tab_setup">اتصال</string>
+
+    <!-- Header chips -->
+    <string name="chip_host">هاست</string>
+    <string name="chip_token">توکن</string>
+
+    <!-- Surface labels -->
+    <string name="surface_native">بومی</string>
+    <string name="surface_web">کنسول وب</string>
+    <string name="surface_offline">کنسول آفلاین</string>
+
+    <!-- Status screen -->
+    <string name="status_title">وضعیت پوستهٔ هیبریدی</string>
+    <string name="status_subtitle">هر صفحه از کجا می‌آید و چرا — بومی، کنسول وب، یا کنسول آفلاین</string>
+    <string name="card_shell">اتصال و سطح نمایش</string>
+    <string name="card_actions">عملیات</string>
+    <string name="card_hybrid">چرا هیبریدی؟</string>
+    <string name="hybrid_note">یک APK، دو سطح: پوستهٔ بومی همیشه بالا می‌آید و وضعیت اتصال را می‌سنجد؛ کنسول وب (index.php روی هاست شما) داخل همین پوسته باز می‌شود و اگر هاست در دسترس نباشد، کنسول آفلاینِ همراه اپ جای آن را می‌گیرد. توکن API هرگز وارد صفحهٔ وب نمی‌شود: همهٔ درخواست‌ها از پل بومی عبور می‌کنند.</string>
+    <string name="label_host">هاست</string>
+    <string name="label_api">مسیر API</string>
+    <string name="label_probe_state">سلامت هسته</string>
+    <string name="label_latency">زمان پاسخ</string>
+    <string name="label_core_version">نسخهٔ هسته</string>
+    <string name="label_db">پایگاه داده</string>
+    <string name="label_surface">سطح نمایش فعلی</string>
+    <string name="state_unknown">بررسی نشده</string>
+    <string name="yes">بله</string>
+    <string name="no">خیر</string>
+
+    <!-- Actions -->
+    <string name="action_probe">بررسی سلامت هسته</string>
+    <string name="action_probing">در حال بررسی…</string>
+    <string name="action_open_console">باز کردن کنسول</string>
+    <string name="action_open_setup">تنظیم اتصال</string>
+    <string name="action_save">ذخیره تنظیمات</string>
+    <string name="console_reload">بارگذاری دوباره</string>
+
+    <!-- Setup screen -->
+    <string name="setup_title">اتصال به هسته</string>
+    <string name="setup_subtitle">یک آدرس و یک توکن برای هر دو سطح: بومی و کنسول وب</string>
+    <string name="section_connection">اتصال</string>
+    <string name="section_analysis">پیش‌فرض تحلیل</string>
+    <string name="section_surface">سطح نمایش</string>
+    <string name="field_host">آدرس هاست (مثال: https://your-domain.com/trader)</string>
+    <string name="field_token">توکن API هسته (X-API-Token)</string>
+    <string name="field_symbol">نماد</string>
+    <string name="field_timeframe">تایم‌فریم</string>
+    <string name="switch_prefer_native">ترجیح سطح بومی</string>
+    <string name="prefer_native_note">با روشن بودن این گزینه، تب «وضعیت» همیشه بومی می‌ماند؛ تب «کنسول» همچنان کنسول وب را باز می‌کند چون درخواست صریح کاربر است.</string>
+    <string name="warn_http">اتصال بدون HTTPS رمزنگاری نمی‌شود؛ توصیه می‌شود آدرس هاست با https:// شروع شود.</string>
+    <string name="warn_token_local">توکن فقط در حافظهٔ خصوصی همین اپلیکیشن نگه داشته می‌شود، در پشتیبان‌گیری ابری قرار نمی‌گیرد و به JavaScript داده نمی‌شود.</string>
+
+    <!-- Console screen -->
+    <string name="console_title">کنسول</string>
+
+    <!-- Probe verdicts -->
+    <string name="probe_online">هسته سالم</string>
+    <string name="probe_slow">هسته سالم اما کند</string>
+    <string name="probe_degraded">هسته در وضعیت degraded</string>
+    <string name="probe_not_configured">هاست تنظیم نشده</string>
+    <string name="probe_no_response">پاسخی دریافت نشد</string>
+    <string name="probe_timeout">زمان پاسخ تمام شد</string>
+    <string name="probe_dns">دامنه پیدا نشد (DNS)</string>
+    <string name="probe_tls">خطای گواهی/ TLS</string>
+    <string name="probe_refused">اتصال رد شد</string>
+    <string name="probe_io">خطای شبکه</string>
+    <string name="probe_not_installed">هسته روی این آدرس نصب نیست</string>
+    <string name="probe_unauthorized">توکن نامعتبر است</string>
+    <string name="probe_rate_limited">محدودیت نرخ درخواست</string>
+    <string name="probe_server">خطای سرور</string>
+    <string name="probe_bad_payload">پاسخ هسته قابل خواندن نیست</string>
+
+    <!-- Router reasons -->
+    <string name="reason_remote_console">کنسول وب روی هاست شما باز شده است.</string>
+    <string name="reason_offline_asset">کنسول آفلاینِ همراه اپ نمایش داده می‌شود.</string>
+    <string name="reason_setup_required">ابتدا آدرس هاست را در تب «اتصال» وارد کنید.</string>
+    <string name="reason_host_unreachable">هاست در دسترس نیست؛ تا بازگشت اتصال، کنسول آفلاین نمایش داده می‌شود.</string>
+    <string name="reason_auth_required">برای این بخش توکن API لازم است.</string>
+    <string name="reason_no_network">دستگاه به اینترنت متصل نیست.</string>
+    <string name="reason_user_forced_native">به انتخاب شما این تب بومی نگه داشته شده است.</string>
+    <string name="reason_native_status">این تب همیشه بومی است و بدون هاست هم کار می‌کند.</string>
+    <string name="reason_native_setup">تنظیم اتصال فقط به‌صورت بومی انجام می‌شود.</string>
+
+    <!-- Messages -->
+    <string name="msg_settings_saved">تنظیمات ذخیره شد.</string>
+    <string name="msg_signal_from_page">سیگنال از کنسول وب دریافت شد.</string>
+    <string name="msg_page_log">پیام کنسول وب</string>
+
+</resources>
