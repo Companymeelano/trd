@@ -136,6 +136,19 @@ never_called = custom - called - {"ShellHeader", "ShellBottomBar", "StatusDot", 
 if never_called:
     failures.append(f"composables defined but never used: {sorted(never_called)}")
 
+# ── 3b) backtick test names must be legal JVM identifiers ──────────────────────
+#
+# Kotlin allows spaces in `backtick names`, but the JVM forbids . ; [ / < > : in
+# method names — compileDebugUnitTestKotlin fails with
+# "Name contains illegal characters".
+
+ILLEGAL_NAME_CHARS = set(".;[]/<>:")
+for kt in KT:
+    for name in re.findall(r"fun `([^`]+)`\s*\(", kt.read_text(encoding="utf-8")):
+        bad = sorted(set(name) & ILLEGAL_NAME_CHARS)
+        if bad:
+            failures.append(f"{kt.name}: test name `{name}` contains illegal characters {bad}")
+
 # ── 4) brace balance ───────────────────────────────────────────────────────────
 
 

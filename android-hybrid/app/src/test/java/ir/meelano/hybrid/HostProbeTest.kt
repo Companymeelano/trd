@@ -94,7 +94,7 @@ class HostProbeTest {
     }
 
     @Test
-    fun `a 5.x core version is accepted`() {
+    fun `a 5-8 core version is accepted`() {
         val decision = HostProbe.evaluate(true, ProbeSample(200, coreVersion = "5.8.1"))
         assertEquals(ProbeVerdict.ONLINE, decision.verdict)
     }
