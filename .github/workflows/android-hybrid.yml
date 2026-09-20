@@ -103,3 +103,31 @@ jobs:
           name: meelano-hybrid-unit-test-report
           path: android-hybrid/app/build/reports/tests/testDebugUnitTest
           if-no-files-found: ignore
+
+      # The development sandbox cannot reach the Actions log/artifact hosts, so on
+      # failure the tail of the Gradle console is mirrored into the open PR for
+      # this branch (same workaround as android-build.yml).
+      - name: Report failure log to PR comment (best effort)
+        if: failure()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR=$(curl -sS -H "Authorization: Bearer ${GH_TOKEN}" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls?head=${GITHUB_REPOSITORY_OWNER}:${GITHUB_REF_NAME}&state=open" \
+            | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d[0]["number"] if d else "")')
+          if [ -z "${PR}" ]; then
+            echo "no open PR for ${GITHUB_REF_NAME}; skipping comment"
+            exit 0
+          fi
+          {
+            echo "## Android Hybrid CI — tail of Gradle console (run ${GITHUB_RUN_ID})"
+            echo '```text'
+            tail -c 60000 android-hybrid/build-log.txt 2>/dev/null || echo "(no log captured)"
+            echo '```'
+          } > /tmp/failure-comment.md
+          curl -sS -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" \
+            --data-binary @/tmp/failure-comment.md || true

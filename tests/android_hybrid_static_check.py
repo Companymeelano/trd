@@ -83,6 +83,38 @@ else:
     if not activity_file.exists():
         failures.append(f"manifest activity .{activity.group(1)} has no {activity_file.name}")
 
+# ── 2b) resources referenced from other res XML files ──────────────────────────
+#
+# The manifest is not the only place that references resources: adaptive icons
+# point at drawables/colors. Those references are resolved by aapt2 at link
+# time, so a missing one fails the APK build long after these checks pass.
+
+available_drawables = {p.stem for p in res_dir.glob("drawable*/*")}
+available_mipmaps = {p.stem for p in res_dir.glob("mipmap-*/*")}
+available_colors = set(re.findall(r'<color name="([^"]+)"', colors))
+available_strings = set(fa)
+available_styles = set(re.findall(r'<style name="([^"]+)"', themes))
+available_xml = {p.stem for p in res_dir.glob("xml/*")}
+
+for xml_file in sorted(res_dir.glob("*/*.xml")):
+    if xml_file.parent.name.startswith("values"):
+        continue
+    text = xml_file.read_text(encoding="utf-8")
+    for kind, name in set(re.findall(r'"@(string|mipmap|style|color|drawable|xml)/([\w.]+)"', text)):
+        rel = f"{xml_file.parent.name}/{xml_file.name}"
+        if kind == "drawable" and name not in available_drawables:
+            failures.append(f"{rel}: references missing @drawable/{name}")
+        if kind == "mipmap" and name not in available_mipmaps:
+            failures.append(f"{rel}: references missing @mipmap/{name}")
+        if kind == "color" and name not in available_colors:
+            failures.append(f"{rel}: references missing @color/{name}")
+        if kind == "string" and name not in available_strings:
+            failures.append(f"{rel}: references missing @string/{name}")
+        if kind == "style" and name not in available_styles:
+            failures.append(f"{rel}: references missing @style/{name}")
+        if kind == "xml" and name not in available_xml:
+            failures.append(f"{rel}: references missing @xml/{name}")
+
 # ── 3) composables ─────────────────────────────────────────────────────────────
 
 all_src = "\n".join(kt.read_text(encoding="utf-8") for kt in KT)
