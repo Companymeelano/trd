@@ -24,6 +24,7 @@ concurrency:
 
 permissions:
   contents: write
+  issues: write
   pull-requests: write
 
 jobs:
@@ -120,14 +121,24 @@ jobs:
             echo "no open PR for ${GITHUB_REF_NAME}; skipping comment"
             exit 0
           fi
-          {
-            echo "## Android Hybrid CI — tail of Gradle console (run ${GITHUB_RUN_ID})"
-            echo '```text'
-            tail -c 60000 android-hybrid/build-log.txt 2>/dev/null || echo "(no log captured)"
-            echo '```'
-          } > /tmp/failure-comment.md
+          python3 - "${PR}" > /tmp/failure-comment.json <<'PY'
+          import json, os, sys
+          pr = sys.argv[1]
+          try:
+              with open("android-hybrid/build-log.txt", "r", errors="replace") as fh:
+                  log = fh.read()[-60000:]
+          except OSError:
+              log = "(no log captured)"
+          body = (
+              "## Android Hybrid CI — tail of Gradle console "
+              f"(run {os.environ.get('GITHUB_RUN_ID')}, PR #{pr})\n\n"
+              f"```text\n{log}\n```"
+          )
+          json.dump({"body": body}, sys.stdout)
+          PY
           curl -sS -X POST \
             -H "Authorization: Bearer ${GH_TOKEN}" \
             -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
             "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" \
-            --data-binary @/tmp/failure-comment.md || true
+            --data-binary @/tmp/failure-comment.json
