@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string name="app_name">MeeLano Hybrid</string>
+    <string name="brand_title">MeeLano Hybrid 6.0</string>
+    <string name="brand_subtitle">Unified hybrid app · native shell + web console in one APK</string>
+    <string name="footer_note">A decision-support tool; it does not guarantee profit or predict the market.</string>
+
+    <!-- Tabs -->
+    <string name="tab_status">Status</string>
+    <string name="tab_console">Console</string>
+    <string name="tab_setup">Connection</string>
+
+    <!-- Header chips -->
+    <string name="chip_host">Host</string>
+    <string name="chip_token">Token</string>
+
+    <!-- Surface labels -->
+    <string name="surface_native">Native</string>
+    <string name="surface_web">Web console</string>
+    <string name="surface_offline">Offline console</string>
+
+    <!-- Status screen -->
+    <string name="status_title">Hybrid shell status</string>
+    <string name="status_subtitle">Where every screen comes from, and why — native, web console or offline console</string>
+    <string name="card_shell">Connection and surface</string>
+    <string name="card_actions">Actions</string>
+    <string name="card_hybrid">Why hybrid?</string>
+    <string name="hybrid_note">One APK, two surfaces: the native shell always starts and probes the connection; the web console (index.php on your host) opens inside that same shell, and when the host is unreachable the bundled offline console takes its place. The API token never reaches JavaScript — every request goes through the native bridge.</string>
+    <string name="label_host">Host</string>
+    <string name="label_api">API base</string>
+    <string name="label_probe_state">Core health</string>
+    <string name="label_latency">Response time</string>
+    <string name="label_core_version">Core version</string>
+    <string name="label_db">Database</string>
+    <string name="label_surface">Current surface</string>
+    <string name="state_unknown">Not checked</string>
+    <string name="yes">Yes</string>
+    <string name="no">No</string>
+
+    <!-- Actions -->
+    <string name="action_probe">Check core health</string>
+    <string name="action_probing">Checking…</string>
+    <string name="action_open_console">Open console</string>
+    <string name="action_open_setup">Configure connection</string>
+    <string name="action_save">Save settings</string>
+    <string name="console_reload">Reload</string>
+
+    <!-- Setup screen -->
+    <string name="setup_title">Connect to the core</string>
+    <string name="setup_subtitle">One address and one token for both surfaces: native and web</string>
+    <string name="section_connection">Connection</string>
+    <string name="section_analysis">Analysis defaults</string>
+    <string name="section_surface">Surface</string>
+    <string name="field_host">Host address (e.g. https://your-domain.com/trader)</string>
+    <string name="field_token">Core API token (X-API-Token)</string>
+    <string name="field_symbol">Symbol</string>
+    <string name="field_timeframe">Timeframe</string>
+    <string name="switch_prefer_native">Prefer the native surface</string>
+    <string name="prefer_native_note">When enabled the Status tab always stays native; the Console tab still opens the web console because that is an explicit user action.</string>
+    <string name="warn_http">Traffic without HTTPS is not encrypted; the host address should start with https://.</string>
+    <string name="warn_token_local">The token is kept only in this app\'s private storage, excluded from cloud backup, and never exposed to JavaScript.</string>
+
+    <!-- Console screen -->
+    <string name="console_title">Console</string>
+
+    <!-- Probe verdicts -->
+    <string name="probe_online">Core healthy</string>
+    <string name="probe_slow">Core healthy but slow</string>
+    <string name="probe_degraded">Core degraded</string>
+    <string name="probe_not_configured">Host not configured</string>
+    <string name="probe_no_response">No response received</string>
+    <string name="probe_timeout">Timed out</string>
+    <string name="probe_dns">Domain not found (DNS)</string>
+    <string name="probe_tls">Certificate / TLS error</string>
+    <string name="probe_refused">Connection refused</string>
+    <string name="probe_io">Network error</string>
+    <string name="probe_not_installed">Core not installed at this address</string>
+    <string name="probe_unauthorized">Token rejected</string>
+    <string name="probe_rate_limited">Rate limit active</string>
+    <string name="probe_server">Server error</string>
+    <string name="probe_bad_payload">Unreadable core response</string>
+
+    <!-- Router reasons -->
+    <string name="reason_remote_console">The web console on your host is loaded.</string>
+    <string name="reason_offline_asset">The bundled offline console is showing.</string>
+    <string name="reason_setup_required">Enter the host address in the Connection tab first.</string>
+    <string name="reason_host_unreachable">The host is unreachable; the offline console takes over until it returns.</string>
+    <string name="reason_auth_required">This section needs an API token.</string>
+    <string name="reason_no_network">The device has no internet connection.</string>
+    <string name="reason_user_forced_native">This tab is kept native by your choice.</string>
+    <string name="reason_native_status">This tab is always native and works without a host.</string>
+    <string name="reason_native_setup">Connection setup is native-only.</string>
+
+    <!-- Messages -->
+    <string name="msg_settings_saved">Settings saved.</string>
+    <string name="msg_signal_from_page">Signal received from the web console.</string>
+    <string name="msg_page_log">Web console message</string>
+
+</resources>

@@ -93,6 +93,8 @@ php tests/run.php
 | `includes/Crypto/` | موتور: Indicators، Context، Regime، Filters (۲۵)، MultiTimeframe، RiskManager، SignalEngine، Backtest، AiValidator، MarketData، SignalTracker، Robustness، AutoTrader، Connector، BinanceSpot، **Notifier + درایورهای Notify/**، **Sentiment (لایهٔ هفتم)**، LearningEngine، SignalTracker |
 | `includes/Ai/` | کلاینت چند-پروتکلی (OpenAI/Gemini/Cloudflare)، مسیریاب هوشمند، سلامت |
 | `android/` | اپ اندروید WebView امن (دانلود، Safe Browsing، اسپلش) |
+| `android-hybrid/` | **اپ واحد هیبریدی v6.0**: پوستهٔ بومی Compose + کنسول وب + کنسول آفلاین در یک APK |
+| `android-hybrid/app/src/main/assets/www/` | `hybrid-bridge.js` (پل بومی↔صفحه) و `offline.html` (کنسول آفلاین) |
 
 ## استقرار روی هاست cPanel
 
@@ -121,6 +123,28 @@ php tests/run.php
 - اسپلش برندینگ و آیکون تطبیقی سه‌بعدی در همهٔ چگالی‌ها
 
 ساخت APK از طریق GitHub Actions (گزینهٔ «Android APK») → انتشار خودکار در Release با لینک مستقیم نصب.
+
+### اپ واحد هیبریدی v6.0 — `android-hybrid/`
+
+یک APK با **دو سطح در یک پوسته**: پوستهٔ بومی (Kotlin + Compose) و کنسول وب (همین `index.php`)، با
+**سقوط خودکار به کنسول آفلاین** وقتی هاست در دسترس نیست. جایگزینِ هم‌زمان `android/`،
+`android-hostlink/` و `android-native/` برای کاربر نهایی — یک آدرس هاست، یک توکن، یک موتور تصمیم.
+
+- **سه تب:** «وضعیت» (بومی، همیشه بالا می‌آید) · «کنسول» (وب) · «اتصال» (بومی).
+- **مسیر تصمیم:** `HybridSettings` → `HostProbe(api/health.php)` → `HybridRouter` → سطح بومی/وب/آفلاین.
+- **پل بومی:** صفحهٔ وب هرگز مستقیم به PHP درخواست نمی‌زند؛ `hybrid-bridge.js` از طریق
+  `window.MeelanoBridge` به `CoreApi` می‌رسد و پاسخ با `MeelanoHybrid.deliver` برمی‌گردد — پس
+  **توکن API هرگز وارد JavaScript نمی‌شود** و مشکل CORS هم از بین می‌رود.
+- **سقوط هوشمند:** DNS/TLS/timeout/5xx یا قطع اینترنت → کنسول آفلاینِ `assets/www/offline.html`
+  به‌جای صفحهٔ خطا؛ `503` (هستهٔ degraded) کنسول راه دور را مسدود نمی‌کند.
+- **امنیت:** `allowBackup=false`، نگه‌داشتن متدهای `@JavascriptInterface` در ProGuard، سرو assetها با
+  `WebViewAssetLoader` روی مبدأ https مصنوعی (نه `file://`)، مسدودسازی ناوبری بیرون از هاست،
+  و escape کامل payload تزریقی.
+- **تست:** `python3 tests/android_hybrid_static_check.py` (قرارداد Kotlin↔JS) +
+  `node tests/hybrid-bridge.test.mjs` (۱۴ تست روی پل واقعی) + `./gradlew testDebugUnitTest`
+  در `android-hybrid/`.
+
+📄 جزئیات کامل معماری، جدول حکم‌های سلامت و ساخت: **[android-hybrid/README.md](android-hybrid/README.md)**
 
 ### بستهٔ آمادهٔ v5.8.1 — HOST LINK (رفع کرش لحظهٔ باز شدن)
 

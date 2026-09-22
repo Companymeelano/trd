@@ -1,0 +1,144 @@
+name: Android Hybrid
+
+on:
+  push:
+    branches:
+      - "main"
+      - "arena/**"
+    paths:
+      - "android-hybrid/**"
+      - "tests/android_hybrid_static_check.py"
+      - "tests/hybrid-bridge.test.mjs"
+      - ".github/workflows/android-hybrid.yml"
+  pull_request:
+    paths:
+      - "android-hybrid/**"
+      - "tests/android_hybrid_static_check.py"
+      - "tests/hybrid-bridge.test.mjs"
+      - ".github/workflows/android-hybrid.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: android-hybrid-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  checks:
+    name: Contract checks (no JVM needed)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Hybrid static checks (resources, manifest, Kotlin↔JS contract)
+        run: python3 tests/android_hybrid_static_check.py
+
+      - name: Bridge unit tests (Node)
+        run: node tests/hybrid-bridge.test.mjs
+
+  build:
+    name: Unit tests + APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    needs: checks
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Prepare Android SDK components
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ -x "$SDKMANAGER" ]; then
+            yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+            "$SDKMANAGER" "platforms;android-35" "build-tools;35.0.0" "platform-tools" || true
+          else
+            echo "sdkmanager not found; AGP will download what it needs."
+          fi
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Unit tests + debug APK
+        working-directory: android-hybrid
+        run: |
+          set -o pipefail
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace testDebugUnitTest assembleDebug 2>&1 | tee build-log.txt
+
+      - name: Release APK (signed with debug key when no keystore secret is set)
+        working-directory: android-hybrid
+        run: |
+          set -o pipefail
+          ./gradlew --no-daemon assembleRelease 2>&1 | tee -a build-log.txt
+
+      - name: Upload debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: meelano-hybrid-debug-apk
+          path: android-hybrid/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Upload release APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: meelano-hybrid-release-apk
+          path: android-hybrid/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+
+      - name: Upload unit test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: meelano-hybrid-unit-test-report
+          path: android-hybrid/app/build/reports/tests/testDebugUnitTest
+          if-no-files-found: ignore
+
+      # The development sandbox cannot reach the Actions log/artifact hosts, so on
+      # failure the tail of the Gradle console is mirrored into the open PR for
+      # this branch (same workaround as android-build.yml).
+      - name: Report failure log to PR comment (best effort)
+        if: failure()
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR=$(curl -sS -H "Authorization: Bearer ${GH_TOKEN}" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls?head=${GITHUB_REPOSITORY_OWNER}:${GITHUB_REF_NAME}&state=open" \
+            | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d[0]["number"] if d else "")')
+          if [ -z "${PR}" ]; then
+            echo "no open PR for ${GITHUB_REF_NAME}; skipping comment"
+            exit 0
+          fi
+          python3 - "${PR}" > /tmp/failure-comment.json <<'PY'
+          import json, os, sys
+          pr = sys.argv[1]
+          try:
+              with open("android-hybrid/build-log.txt", "r", errors="replace") as fh:
+                  log = fh.read()[-60000:]
+          except OSError:
+              log = "(no log captured)"
+          body = (
+              "## Android Hybrid CI — tail of Gradle console "
+              f"(run {os.environ.get('GITHUB_RUN_ID')}, PR #{pr})\n\n"
+              f"```text\n{log}\n```"
+          )
+          json.dump({"body": body}, sys.stdout)
+          PY
+          curl -sS -X POST \
+            -H "Authorization: Bearer ${GH_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/issues/${PR}/comments" \
+            --data-binary @/tmp/failure-comment.json
